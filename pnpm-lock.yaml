@@ -6,21 +6,19 @@ settings:
 
 importers:
 
-  .:
-    devDependencies:
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
+  .: {}
 
-  apps/gas/bound/sheet_naim_connect: {}
+  apps/gas/bound/sheet_naim_connect:
+    devDependencies:
+      '@types/google-apps-script':
+        specifier: ^2.0.8
+        version: 2.0.8
 
 packages:
 
-  typescript@6.0.2:
-    resolution: {integrity: sha512-bGdAIrZ0wiGDo5l8c++HWtbaNCWTS4UTv7RaTH/ThVIgjkveJt83m74bBHMJkuCbslY8ixgLBVZJIOiQlQTjfQ==}
-    engines: {node: '>=14.17'}
-    hasBin: true
+  '@types/google-apps-script@2.0.8':
+    resolution: {integrity: sha512-mGPmzzdgBu1DlwrjOhFQ8u0se6AF/z4OpaTzOGwNKxwXZjE7J+IssfE3oL24j/S/p6aFiSTIptHZvbyqeZD8vA==}
 
 snapshots:
 
-  typescript@6.0.2: {}
+  '@types/google-apps-script@2.0.8': {}

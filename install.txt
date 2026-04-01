@@ -1,0 +1,65 @@
+(pnpm workspace 루트 초기화)
+루트 package.json을 workspace용으로 변경
+루트 pnpm-workspace.yaml 생성
+각 패키지 폴더에서 package.json 생성
+각 폴더에서 pnpm init 실행
+루트에서 의존성 설치/링크
+패키지 이름은 충돌 안 나게 잡기
+예: @gs/gas-sheet-naim-connect, @gs/chrome-naim-ext, @gs/shared-utils
+루트에서만 설치 명령 관리 (pnpm add -w ..., pnpm -r ...)하면 운영이 깔끔함
+루트에서 실행 : pnpm install
+
+개별 패키지(프로젝트별로)
+cd /home/jungh/webProjects/google-scripts/apps/gas/bound/sheet_naim_connect
+pnpm init
+pnpm add -D typescript @types/google-apps-script
+# 전역 설치 쓴다면
+clasp login
+clasp clone 1hSOCHFTgJwGHhXSqbJ3S5PriogI-a-8TdVXjfiXASRPjCjzxk3SVW8Hr
+# 로컬 설치 방식이면
+pnpm exec clasp login
+pnpm exec clasp clone 1hSOCHFTgJwGHhXSqbJ3S5PriogI-a-8TdVXjfiXASRPjCjzxk3SVW8Hr
+
+(clasp)
+npm install -g @google/clasp   : 3.3.0
+clasp -v
+clasp login
+//cd subfolders of ....
+mkdir -p apps/gas/bound/sheet_naim_connect
+cd apps/gas/bound/sheet_naim_connect 
+clasp clone <SCRIPT_ID>   1hSOCHFTgJwGHhXSqbJ3S5PriogI-a-8TdVXjfiXASRPjCjzxk3SVW8Hr
+clasp pull or push, .....clasp run hello,...clasp version "xyz"...clasp logs
+
+web에서 gsheet, docs에서 appsscript를 먼저 생성 하고 clone 하는 것이 설정이 좀더 편리하다
+
+(typescript compiler)
+Apps Script (GAS)
+- TS 작성 가능, 최종 배포는 JS(.gs/.js)로 변환 필요
+- 보통 tsc 또는 esbuild로 컴파일해서 clasp push
+GAS는 런타임 제약이 있어 번들/타깃 설정을 GAS 친화적으로 잡아야 함
+Chrome Extension
+
+TS 작성 가능
+MV3 기준 service_worker, content script, popup 등을 빌드해서 JS 산출물로 사용
+보통 module: esnext, target: es2020+, 번들러(esbuild/vite/webpack) 사용
+
+
+공용 tsconfig 1개로 다 처리하지 말고
+apps/gas/...용 tsconfig
+apps/extension/...용 tsconfig
+필요하면 루트 tsconfig.base.json 상속
+즉, “플랫폼별 tsconfig 분리”
+
+pnpm add -Dw typescript (루트 1회)
+
+npm init -y
+npm install typescript
+
+tsconfig.json:
+
+{
+  "compilerOptions": {
+    "target": "ES5",
+    "module": "none"
+  }
+}

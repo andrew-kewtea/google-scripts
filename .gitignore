@@ -1,3 +1,14 @@
+
+#
+# Apps Script / clasp
+#**/.claspignore
+**/.clasprc.json 
+# clasp auth/local config
+#**/.clasp.json #→ 개인 프로젝트면 보통 추적(= gitignore에 넣지 않음)
+
+
+
+
 # Logs
 logs
 *.log

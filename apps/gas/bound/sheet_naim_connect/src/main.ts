@@ -23,7 +23,14 @@ function getSheetOrThrow(
   }
   return sheet;
 }
+/* 
+main.ts로 만들것을 컴파일해서 Code.js로 변환해서 push하는 것이 목적
 
+컴파일해서 dist/main.js로 생성
+dist/appsscript.json을 만들어서 push하는 것이 목적
+
+
+*/
 /**
  * A열의 값이 1 또는 "1"인 행을 찾아 데이터와 행 인덱스를 반환합니다.
  */

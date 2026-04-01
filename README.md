@@ -1,6 +1,36 @@
 # google-scripts
 google apps script and chrome extension development
 
+clasp pull  ( 이파일과 main.ts를 수동으로 비교해야)
+.....코드 편집.....
+pnpm run build
+clasp push
+
+
+pnpm run build는 TypeScript 컴파일만 해서 dist/main.js를 만듭니다.
+그 다음 clasp push가 dist 파일을 Apps Script API 형식으로 업로드할 때,
+.js/.gs 모두 서버 스크립트 파일(SERVER_JS) 로 취급합니다.
+그래서 Apps Script 웹 에디터에서는 보통 *.gs 형태로 보일 수 있습니다(표현 방식 차이).
+즉:
+
+로컬: main.js
+원격 Apps Script: 서버 스크립트 파일(보통 main.gs처럼 보임)
+Code.gs라는 이름을 꼭 원하면 로컬 파일 basename을 Code로 맞추는 방식(Code.ts -> Code.js)이 가장 단순합니다.
+
+dist에 없는 기존 Code.gs는 최종적으로 사라지는 쪽으로 동작합니다.
+즉 정상 흐름이면 원격에 main.gs(또는 main.js 표시)만 남고 Code.gs는 없어집니다.
+
+appsscript.json의 dependencies는 언제 추가하나?
+맞습니다. 추가할 일이 있습니다. 주로 2가지 상황입니다.
+
+Advanced Google Services 사용 시
+
+예: Drive, Sheets, Gmail의 Advanced Service API 사용
+dependencies.enabledAdvancedServices에 서비스/버전 추가 필요
+Apps Script 라이브러리 사용 시
+
+다른 Script 프로젝트를 라이브러리로 참조할 때
+dependencies.libraries에 libraryId, userSymbol, version 등 설정
 
 
 [npm -pnpm 사용법]
@@ -19,6 +49,7 @@ pnpm install
 
 
 [clasp 사용법]
+(권한 설정) https://script.google.com/home/usersettings
 (설치)
 npm install -g @google/clasp   : 3.3.0
 clasp -v

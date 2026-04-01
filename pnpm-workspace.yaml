@@ -1,0 +1,5 @@
+# pnpm-workspace.yaml
+packages:
+  - "apps/*" # 실제 실행되는 애플리케이션들
+  - "apps/gas/*/*"
+  - "shared/*"

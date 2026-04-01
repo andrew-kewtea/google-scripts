@@ -1,0 +1,24 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .: {}
+
+  apps/gas/bound/sheet_naim_connect:
+    devDependencies:
+      '@types/google-apps-script':
+        specifier: ^2.0.8
+        version: 2.0.8
+
+packages:
+
+  '@types/google-apps-script@2.0.8':
+    resolution: {integrity: sha512-mGPmzzdgBu1DlwrjOhFQ8u0se6AF/z4OpaTzOGwNKxwXZjE7J+IssfE3oL24j/S/p6aFiSTIptHZvbyqeZD8vA==}
+
+snapshots:
+
+  '@types/google-apps-script@2.0.8': {}

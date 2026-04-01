@@ -1,0 +1,13 @@
+{
+  "name": "google-scripts",
+  "version": "1.0.0",
+  "description": "google apps script and chrome extension development",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r dev",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  }
+}

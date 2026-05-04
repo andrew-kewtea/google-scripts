@@ -91,7 +91,19 @@ var NOTES_PULL_SYNCED_AT_A1 = 'I4';
 var NOTES_DATA_FIRST_ROW = 9;
 var NOTES_DATA_NUM_COLS = 9;
 
+/** ScriptProperties keys (onEdit loading 플래그 / data range 경계 저장) */
+var PROP_LOADING        = 'loading';
+var PROP_NOTES_LAST_ROW = 'notes_data_last_row';
+
+/** notes push: 데이터 하단 create 대기 행 수 */
+var NOTES_EXTRA_CREATE_ROWS = 5;
+/** notes push: 행별 결과 기록 열 (J = 10) */
+var NOTES_PUSH_STATUS_COL = 10;
+/** notes push: summary 메시지 셀 */
+var NOTES_PUSH_MESSAGE_A1 = 'G5';
+
 function onOpen() {
+  try { initDataRangeOnOpen_(); } catch (e) { /* 권한 없을 때 silent */ }
   SpreadsheetApp.getUi()
     .createMenu('Fast2 Admin')
     .addItem('1) Sign up', 'signupFromSheet')
@@ -99,6 +111,7 @@ function onOpen() {
     .addItem('3) Refresh access token', 'refreshAccessTokenFromSheet')
     .addSeparator()
     .addItem('Pull (list)', 'pullListFromSheet')
+    .addItem('Push (create/update/delete)', 'pushChangesFromSheet')
     .addToUi();
 }
 
@@ -166,8 +179,10 @@ function pullNotesListFromSheet() {
  * @param {GoogleAppsScript.Spreadsheet.Sheet} notesSheet 활성 시트(이미 gid 가 notes 임을 호출부에서 보장)
  */
 function runPullNotesList_(notesSheet) {
+  var props = PropertiesService.getScriptProperties();
   var msg = '';
   try {
+    props.setProperty(PROP_LOADING, 'true');
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var settingsSh = getSheetBySheetId_(ss, SETTINGS_SHEET_GID);
     if (!settingsSh) {
@@ -203,10 +218,14 @@ function runPullNotesList_(notesSheet) {
           )
           .setValues(rows);
       }
+      props.setProperty(PROP_NOTES_LAST_ROW,
+        String(rows.length > 0 ? NOTES_DATA_FIRST_ROW + rows.length - 1 : NOTES_DATA_FIRST_ROW - 1));
       msg = 'OK — ' + rows.length + '건';
     }
   } catch (e) {
     msg = String(e.message || e);
+  } finally {
+    props.setProperty(PROP_LOADING, 'false');
   }
   writeNotesPullStatus_(notesSheet, msg);
   if (msg.indexOf('OK —') !== 0) {

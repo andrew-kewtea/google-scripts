@@ -31,15 +31,59 @@ clasp redeploy <deploymentId> -V <version번호>
 
 
 ================================================================================
-앞으로 할 일 (src/main.js + 시트 + fast2)
+src/ 코드 구조 (clasp rootDir = src)
+================================================================================
+프로젝트는 여러 .js 로 나뉘어 있으며 push 시 한 스크립트로 합쳐짐. 파일별 역할 표는 readme2.txt.
+
+| Path            | 요약 |
+|-----------------|------|
+| main.js         | 메뉴, auth, PULL_SPECS_BY_GID + registerPullSpecs_() |
+| http.js         | UrlFetch, BASE, JSON |
+| sheet_util.js   | 시트 읽기/초기화, 공통 list 쿼리 문자열 |
+| list_envelope.js| items/total (+ page 등) 파싱 |
+| pull_runner.js  | runPullList_(sheet, spec) |
+| models/notes.js | notes 전용 layout·쿼리·NOTES_PULL_SPEC |
+
+registerPullSpecs_(): clasp 가 파일을 알파벳 순으로 합칠 수 있어, Pull 메뉴 실행 시점에
+PULL_SPECS_BY_GID 에 spec 을 넣는다. 새 모델은 이 함수 안에 한 줄 등록.
+
+
+================================================================================
+다른 모델(posts, tasks, users 등) Pull 탭 추가 절차
+================================================================================
+서버에 GET /api/v1/<리소스>/ 가 있고, 응답이 { items, total, ... } 형태(또는 list_envelope.js 가
+흡수하는 구형 래핑)일 때 아래 순서로 확장하면 된다.
+
+1) 스프레드시트
+   - 새 탭 만들고 브라우저 URL 에서 #gid=숫자 를 확인한다.
+   - 그 숫자를 코드의 *_SHEET_GID 에 넣는다(탭 이름 변경과 무관).
+
+2) models/<이름>.js 를 새로 작성 (notes.js 를 템플릿으로 복사 권장)
+   - RESOURCE 라벨(알림용): resourceLabel, 예: 'posts'.
+   - listPath: 예 '/api/v1/posts/'
+   - 쿼리: PARAM_KEYS 배열, 값이 있는 시트 행/열 시작 칸(useListQuery / list_query 규약과 동일 키).
+     sort 정규화가 필요하면 normalize*ForKey 함수만 모델별로 유지.
+   - layout: dataFirstRow, numCols, messageA1, syncedAtA1 (Pull 메시지·동기 시각 셀).
+   - mapItemToRow: API 객체 한 건 → 시트 한 행 배열 (열 순서는 해당 탭 헤더와 맞출 것).
+
+3) main.js 의 registerPullSpecs_() 안에 한 줄 추가
+   - PULL_SPECS_BY_GID[POSTS_SHEET_GID] = POSTS_PULL_SPEC;
+
+4) clasp push 후 해당 탭을 연 상태에서 메뉴 «Pull (list)» 테스트.
+   - 인증은 항상 settings 탭의 G5 access Bearer 를 쓴다(변경 없음).
+
+추가(선택): 응답 에코 필드를 다른 셀에 쓰려면 spec.onSuccessExtra(sheet, env) 를 구현한다
+(pull_runner.js).
+
+
+================================================================================
+앞으로 할 일 (src/ + 시트 + fast2)
 ================================================================================
 - Push / update: 노트 create·patch·put(또는 form)을 시트에 맞춰 연동. 메뉴는 «Pull (list)»처럼
-  단일 항목 + 활성 탭 gid 분기 패턴을 유지하는 편이 좋음.
-- 다른 모델 탭: posts, users 등 추가 시 상수(gid, model 이름) + pullListFromSheet 분기 +
-  전용 runPull*(시트 레이아웃·API 경로) 구현.
+  단일 항목 유지하고, 새 동작도 활성 탭 gid 레지스트리 패턴과 맞추는 편이 좋음.
 - 태그: 목록 API에 tags_display 또는 tags 배열이 내려오도록 fast2 쪽 조정 시 시트 Tags 열이
   채워짐. 쿼리로 태그만 필터하려면 ALLOWED_FILTER_FIELDS·저장소 분기 등 서버 작업 필요
-  (main.js 상단 주석 참고).
+  (models/notes.js 상단 주석 참고).
 - 토큰: access 만료(401 Signature has expired 등) 시 Fast2 Admin «3) Refresh access token»
   (settings 탭, G6 refresh → POST /api/v1/auth/token → G5 갱신). refresh 도 만료되면 2) Log in.
 - 배포: 스크립트 저장소 push 후에도 웹앱/배포가 특정 버전에 고정되어 있으면 clasp version +
@@ -48,12 +92,12 @@ clasp redeploy <deploymentId> -V <version번호>
 ================================================================================
 주의사항
 ================================================================================
-- 시트 gid: NOTES_SHEET_GID 는 URL `#gid=` 와 같아야 함. 파일을 복제하거나 탭 순서가 바뀌면
-  숫자가 달라질 수 있으니 main.js 상수를 갱신할 것.
+- 시트 gid: NOTES_SHEET_GID 등은 URL `#gid=` 와 같아야 함. 파일을 복제하거나 탭이 바뀌면
+  숫자가 달라질 수 있으니 해당 models/*.js 의 상수를 갱신할 것.
 - Apps Script getRange(row, column, numRows, numColumns): 세·네 번째 인자는 «끝 행/열»이 아니라
   «행 개수·열 개수». setValues 시 데이터 행 수와 반드시 일치시킬 것.
 - List 쿼리(sort 등): fast2 는 snake_case 필드명만 허용(last_updated_at). 시트에 PascalCase를
-  쓰면 코드 쪽 sort 별칭 치환이 있으나, 서버·시트·코드 중 한곳은 OpenAPI와 맞출 것.
+  쓰면 models/notes.js 의 sort 별칭 치환이 있으나, 서버·시트·코드 중 한곳은 OpenAPI와 맞출 것.
 - 시간 필드: API last_updated_at 은 unix 초(정수). 시트 표시는 코드에서 초→현지 시각으로 변환.
   구간 필터는 last_updated_atFrom / last_updated_atTo 형태(list_query 규약).
 - settings 탭: 1) Sign up / 2) Log in / 3) Refresh access token 은 활성 시트 gid=0 일 때만 동작.

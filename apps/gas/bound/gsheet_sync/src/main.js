@@ -42,6 +42,14 @@ var PATH_AUTH_TOKEN = '/api/v1/auth/token';
 /** Pull(list): 활성 탭 gid → spec. ``registerPullSpecs_`` 에서 채움(파일 로드 순서와 무관). */
 var PULL_SPECS_BY_GID = {};
 
+/** Push ScriptProperties key: pull 진행 중 onEdit 차단용 */
+var PROP_LOADING = 'loading';
+
+/** Push: notes 설정 상수 (pushCUD.js / models/notes.js 에서 참조) */
+var NOTES_EXTRA_CREATE_ROWS = 5;    // 데이터 하단 create 대기 행 수
+var NOTES_PUSH_STATUS_COL   = 10;   // J열: 행별 push 결과
+var NOTES_PUSH_MESSAGE_A1   = 'G5'; // push 전체 요약 셀
+
 /**
  * Apps Script 는 파일명 알파벳 순으로 합쳐질 수 있어 main.js 가 models/notes.js 보다 먼저 오면
  * 상단에서 ``NOTES_PULL_SPEC`` 을 참조하면 실패한다. 메뉴/`pullListFromSheet` 시점에 등록한다.
@@ -63,6 +71,8 @@ function formatRegisteredPullModels_() {
 
 function onOpen() {
   registerPullSpecs_();
+  registerPushSpecs_();
+  try { initDataRangeOnOpen_(); } catch (e) { /* 권한 없을 때 silent */ }
   SpreadsheetApp.getUi()
     .createMenu('Fast2 Admin')
     .addItem('1) Sign up', 'signupFromSheet')
@@ -70,6 +80,7 @@ function onOpen() {
     .addItem('3) Refresh access token', 'refreshAccessTokenFromSheet')
     .addSeparator()
     .addItem('Pull (list)', 'pullListFromSheet')
+    .addItem('Push (create/update/delete)', 'pushChangesFromSheet')
     .addToUi();
 }
 

@@ -59,3 +59,39 @@ function parseJsonSafe_(text) {
     return null;
   }
 }
+
+// --- Authenticated mutation helpers (POST / PATCH / DELETE with Bearer) ---
+
+function httpPostBearer_(url, token, bodyObj) {
+  return UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    muteHttpExceptions: true,
+    headers: Object.assign({}, ngrokHeaders_(), {
+      Authorization: 'Bearer ' + String(token || ''),
+    }),
+    payload: JSON.stringify(bodyObj),
+  });
+}
+
+function httpPatchBearer_(url, token, bodyObj) {
+  return UrlFetchApp.fetch(url, {
+    method: 'patch',
+    contentType: 'application/json',
+    muteHttpExceptions: true,
+    headers: Object.assign({}, ngrokHeaders_(), {
+      Authorization: 'Bearer ' + String(token || ''),
+    }),
+    payload: JSON.stringify(bodyObj),
+  });
+}
+
+function httpDeleteBearer_(url, token) {
+  return UrlFetchApp.fetch(url, {
+    method: 'delete',
+    muteHttpExceptions: true,
+    headers: Object.assign({}, ngrokHeaders_(), {
+      Authorization: 'Bearer ' + String(token || ''),
+    }),
+  });
+}

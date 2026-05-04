@@ -10,8 +10,10 @@
  *           onSuccessExtra?: function(GoogleAppsScript.Spreadsheet.Sheet,Object): void }} spec
  */
 function runPullList_(resourceSheet, spec) {
+  var props = PropertiesService.getScriptProperties();
   var msg = '';
   try {
+    props.setProperty(PROP_LOADING, 'true');
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
     var settingsSh = getSheetBySheetId_(ss, SETTINGS_SHEET_GID);
@@ -60,20 +62,24 @@ function runPullList_(resourceSheet, spec) {
           .setValues(rows);
       }
 
-      msg =
-        'OK — ' +
-        rows.length +
-        '건 (total=' +
-        env.total +
-        ')';
+      // push / onEdit 에서 watch 범위 계산에 사용. key = 'data_last_row_<gid>'
+      props.setProperty(
+        'data_last_row_' + spec.sheetGid,
+        String(rows.length > 0
+          ? spec.layout.dataFirstRow + rows.length - 1
+          : spec.layout.dataFirstRow - 1)
+      );
 
-      /** 선택 훉: 에코 파라미터를 별도 셀에 쓰거나 검증 로그 */
+      msg = 'OK — ' + rows.length + '건 (total=' + env.total + ')';
+
       if (spec.onSuccessExtra) {
         spec.onSuccessExtra(resourceSheet, env);
       }
     }
   } catch (e) {
     msg = String(e.message || e);
+  } finally {
+    props.setProperty(PROP_LOADING, 'false');
   }
 
   writePullStatus_(

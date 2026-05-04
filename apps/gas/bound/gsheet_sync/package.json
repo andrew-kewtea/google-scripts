@@ -1,0 +1,9 @@
+{
+  "name": "gsheet_sync",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "devDependencies": {
+    "@google/clasp": "^3.3.0"
+  }
+}

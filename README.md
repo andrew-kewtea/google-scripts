@@ -1,7 +1,9 @@
 # google-scripts
 google apps script and chrome extension development
 
-clasp pull  ( 이파일과 main.ts를 수동으로 비교해야)
+
+
+clasp pull  ( 이파일과 main.ts를 수동으로 비교해야) =(clasp clone <scriptId>)
 .....코드 편집.....
 pnpm run build
 clasp push

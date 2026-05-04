@@ -1,0 +1,18 @@
+{
+  "name": "ts_gsheet_sync",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "pnpm exec tsc -p tsconfig.json && cp appsscript.json dist/appsscript.json",
+    "push": "pnpm run build && clasp push"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.33.0",
+  "devDependencies": {
+    "@types/google-apps-script": "^2.0.8"
+  }
+}

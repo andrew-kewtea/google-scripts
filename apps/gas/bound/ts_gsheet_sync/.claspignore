@@ -1,0 +1,15 @@
+# Node / tooling
+node_modules/**
+package.json
+pnpm-lock.yaml
+tsconfig.json
+*.tsbuildinfo
+
+# Source TS (compile output만 push할 경우)
+src/**
+
+# VCS / editor
+.git/**
+.gitignore
+.vscode/**
+.idea/**

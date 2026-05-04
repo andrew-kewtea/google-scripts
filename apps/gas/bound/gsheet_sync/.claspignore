@@ -1,0 +1,16 @@
+# Node / tooling
+node_modules/**
+package-lock.json
+pnpm-lock.yaml
+tsconfig.json
+*.tsbuildinfo
+
+# VCS / editor
+.git/**
+.gitignore
+.vscode/**
+.idea/**
+
+# Local notes/snapshots
+snapshot/**
+readme.txt

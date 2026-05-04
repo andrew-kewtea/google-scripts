@@ -192,3 +192,39 @@ var NOTES_PULL_SPEC = {
   },
   mapItemToRow: noteToSheetRow_,
 };
+
+/**
+ * notes Push spec — pushCUD.js 의 ``PUSH_SPECS_BY_GID`` 에 등록됨.
+ *
+ * layout.syncedAtA1 : pull 의 last synced 시각 셀(I4) — update/create 판별 기준
+ * layout.summaryA1  : push 전체 결과 셀 (G5, pull 의 G4 와 구분)
+ * layout.pushStatusCol : 행별 결과 열 (J = 10)
+ *
+ * requestCols: push 요청에 포함할 열만 정의. 나머지(Tags, Attachments, Owner_id)는 읽기 전용.
+ * 새 모델 추가 시 이 패턴으로 ``models/<model>.js`` 에 PUSH_SPEC 작성 후
+ * pushCUD.js ``registerPushSpecs_`` 에 gid 등록만 하면 됨.
+ */
+var NOTES_PUSH_SPEC = {
+  resourceLabel:    NOTES_RESOURCE_MODEL,
+  sheetGid:         NOTES_SHEET_GID,
+  basePath:         '/api/v1/notes/',
+  layout: {
+    dataFirstRow:   NOTES_DATA_FIRST_ROW,
+    numCols:        NOTES_DATA_NUM_COLS,
+    syncedAtA1:     NOTES_PULL_SYNCED_AT_A1,
+    summaryA1:      NOTES_PUSH_MESSAGE_A1,
+    pushStatusCol:  NOTES_PUSH_STATUS_COL,
+  },
+  idCol:            1,
+  lastUpdatedAtCol: 2,
+  extraCreateRows:  NOTES_EXTRA_CREATE_ROWS,
+  requestCols: [
+    { col: 3, field: 'title',        required: true      },
+    { col: 4, field: 'content',      transform: 'text'   },
+    { col: 5, field: 'content_type', transform: 'text'   },
+    { col: 8, field: 'is_draft',     transform: 'bool'   },
+    // col 6 Tags: 관계형 필드. 서버 지원 후 { col: 6, field: 'tags', transform: 'csv' } 추가
+    // col 7 Attachments, col 9 Owner_id: 읽기 전용 — 수정해도 반영 안 됨
+  ],
+  defaults: {},
+};

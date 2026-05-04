@@ -55,7 +55,7 @@ pnpm install
 (설치)
 npm install -g @google/clasp   : 3.3.0
 clasp -v
-각 subprojects에서 :e.g. apps/gas/bound/sheet_naim_connect 
+각 subprojects에서 :e.g. apps/gas/bound/ts_gsheet_sync
 clasp login
 clasp clone <SCRIPT_ID>   1hSOCHFTgJwGHhXSqbJ3S5PriogI-a-8TdVXjfiXASRPjCjzxk3SVW8Hr
 clasp pull or push, .....clasp run hello,...clasp version "xyz"...clasp logs
@@ -92,7 +92,7 @@ tsconfig.json: see 각각 samples
 }
 
 (실행) pnpm exec tsc -p tsconfig.json  (현재 폴더안에 있어야함)
-src 파일: apps/gas/bound/sheet_naim_connect/src/main.ts
+src 파일: apps/gas/bound/ts_gsheet_sync/src/main.ts
 
 컴파일 결과가 dist에 나오게 설정했다면, .clasp.json의 rootDir를 dist로 맞추고
 그 다음: clasp push

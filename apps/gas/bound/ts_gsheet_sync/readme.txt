@@ -2,7 +2,7 @@ build에서 dist/main.js + dist/appsscript.json 생성
 clasp push는 dist만 반영
 
 
-sheet_naim_connect/src/main.ts 기능
+ts_gsheet_sync/src/main.ts 기능
 “시트 A열이 1인 행만 추출 → 서버 전송 성공분만 A열을 0으로 갱신”
 package.json 기준으로는 런타임 의존성은 없고, 개발 의존성 1개만
  - "@types/google-apps-script":  타입체크/자동완성용 (실행 시 서버에 배포되는 라이브러리 아님)

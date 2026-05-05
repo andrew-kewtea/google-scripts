@@ -14,3 +14,5 @@ tsconfig.json
 # Local notes/snapshots
 snapshot/**
 readme.txt
+readme_mode.txt
+tests/**

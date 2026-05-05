@@ -1,5 +1,7 @@
 /**
  * ``spec`` 으로 list GET → 시트 채우기. 인증만 settings 탭(``SETTINGS_SHEET_GID``, ``CELL_OUT_ACCESS``).
+ *
+ * 상수·레지스트리: ``10_constants.js`` · ``20_auth.js`` · ``30_registry.js``
  */
 
 /**
@@ -62,7 +64,6 @@ function runPullList_(resourceSheet, spec) {
           .setValues(rows);
       }
 
-      // push / onEdit 에서 watch 범위 계산에 사용. key = 'data_last_row_<gid>'
       props.setProperty(
         'data_last_row_' + spec.sheetGid,
         String(rows.length > 0

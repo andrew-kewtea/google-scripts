@@ -1,6 +1,6 @@
 /**
  * 스프레드시트 헬퍼 + 목록 탭 테이블 영역 초기화/상태 표시.
- * Pull 시 Bearer·BASE 는 settings 탭(main.js CELL_* 상수)과 http.js 규약을 따른다.
+ * Pull 시 Bearer·BASE 는 settings 탭(``20_auth.js`` CELL_* 상수)과 http.js 규약을 따른다.
  */
 
 /**

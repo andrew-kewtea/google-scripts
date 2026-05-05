@@ -13,7 +13,8 @@ var NOTES_EXTRA_CREATE_ROWS = 5;
 var NOTES_PUSH_STATUS_COL = 10;
 
 /**
- * GET {API_PREFIX}/notes/ 쿼리: C6..I6 표시값만 사용(빈 칸 생략).
+ * GET {API_PREFIX}/notes/ 쿼리: C6..I6 (빈 칸 생략).
+ * TimeFrom/TimeTo: 셀이 Date·숫자(epoch)·``YYYY-MM-DD HH:mm`` 문자열이면 API 로는 unix 초 문자열로 보냄.
  * 태그(Tag): 시트 라벨이 Tag여도 E열 값은 현재 ``q`` 로 매핑.
  */
 var NOTES_LIST_QUERY_PARAM_KEYS = [
@@ -25,6 +26,12 @@ var NOTES_LIST_QUERY_PARAM_KEYS = [
   'sort',
   'order',
 ];
+
+/** ``buildListQueryStringFromKeys_`` 에 넘겨 ``BIGINT`` 초 비교와 맞춤 */
+var NOTES_LIST_QUERY_EPOCH_PARAM_KEYS = {
+  last_updated_atFrom: true,
+  last_updated_atTo: true,
+};
 var NOTES_LIST_QUERY_VALUE_ROW = 6;
 var NOTES_LIST_QUERY_START_COL = 3;
 
@@ -142,7 +149,8 @@ var NOTES_PULL_SPEC = {
       NOTES_LIST_QUERY_PARAM_KEYS,
       NOTES_LIST_QUERY_VALUE_ROW,
       NOTES_LIST_QUERY_START_COL,
-      normalizeNotesListQueryValueForKey_
+      normalizeNotesListQueryValueForKey_,
+      NOTES_LIST_QUERY_EPOCH_PARAM_KEYS
     );
   },
   layout: {

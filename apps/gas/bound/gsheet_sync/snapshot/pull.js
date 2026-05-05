@@ -1,5 +1,7 @@
 /**
  * ``spec`` 으로 list GET → 시트 채우기. 인증만 settings 탭(``SETTINGS_SHEET_GID``, ``CELL_OUT_ACCESS``).
+ *
+ * 상수·레지스트리: ``10_constants.js`` · ``20_auth.js`` · ``30_registry.js``
  */
 
 /**
@@ -10,8 +12,10 @@
  *           onSuccessExtra?: function(GoogleAppsScript.Spreadsheet.Sheet,Object): void }} spec
  */
 function runPullList_(resourceSheet, spec) {
+  var props = PropertiesService.getScriptProperties();
   var msg = '';
   try {
+    props.setProperty(PROP_LOADING, 'true');
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
     var settingsSh = getSheetBySheetId_(ss, SETTINGS_SHEET_GID);
@@ -60,20 +64,23 @@ function runPullList_(resourceSheet, spec) {
           .setValues(rows);
       }
 
-      msg =
-        'OK — ' +
-        rows.length +
-        '건 (total=' +
-        env.total +
-        ')';
+      props.setProperty(
+        'data_last_row_' + spec.sheetGid,
+        String(rows.length > 0
+          ? spec.layout.dataFirstRow + rows.length - 1
+          : spec.layout.dataFirstRow - 1)
+      );
 
-      /** 선택 훉: 에코 파라미터를 별도 셀에 쓰거나 검증 로그 */
+      msg = 'OK — ' + rows.length + '건 (total=' + env.total + ')';
+
       if (spec.onSuccessExtra) {
         spec.onSuccessExtra(resourceSheet, env);
       }
     }
   } catch (e) {
     msg = String(e.message || e);
+  } finally {
+    props.setProperty(PROP_LOADING, 'false');
   }
 
   writePullStatus_(

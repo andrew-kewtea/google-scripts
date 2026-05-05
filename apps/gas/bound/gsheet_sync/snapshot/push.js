@@ -229,6 +229,11 @@ function applyTransform_(val, transform) {
     if (s === 'false' || s === '0' || s === 'no')  return false;
     return undefined;
   }
+  if (transform === 'int') {
+    var n = typeof val === 'number' ? val : parseInt(String(val).trim(), 10);
+    if (isNaN(n)) return undefined;
+    return n;
+  }
   if (transform === 'csv') {
     return String(val).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
   }

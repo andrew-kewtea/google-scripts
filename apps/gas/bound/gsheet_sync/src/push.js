@@ -7,6 +7,26 @@
  */
 
 /**
+ * ``spec.basePath`` 가 ``/api/v1/users`` 처럼 끝 슬래시 없이 와도 ``DELETE/PATCH …/<id>`` 가 되도록 정규화한 뒤 id 를 붙인다.
+ * ``POST`` 는 ``base + spec.basePath`` 그대로(노트는 ``/notes/`` 처럼 trailing slash 유지).
+ */
+function apiResourcePathPrefix_(pathPrefix) {
+  return String(pathPrefix || '').replace(/\/+$/, '');
+}
+
+function pushUrlForItemId_(base, pathPrefix, itemId) {
+  return base + apiResourcePathPrefix_(pathPrefix) + '/' + encodeURIComponent(String(itemId));
+}
+
+/** Push 행·요약에 넣기 좋은 길이로 자른다. */
+function pushMutationErrorLine_(verb, code, raw) {
+  var json = parseJsonSafe_(raw);
+  var brief = formatApiErrorBrief_(code, raw, json);
+  var line = verb + ' ' + brief;
+  return line.length > 200 ? line.slice(0, 200) + '…' : line;
+}
+
+/**
  * onEdit simple trigger — watch 범위 내 셀 수정 시 last_updated_at 자동 갱신.
  */
 function onEdit(e) {
@@ -96,16 +116,17 @@ function runPushForSpec_(sheet, spec, base, token) {
 
   for (var d = 0; d < deletes.length; d++) {
     var item = deletes[d];
-    var resp = httpDeleteBearer_(
-      base + spec.basePath + encodeURIComponent(String(item.id)), token);
+    var delUrl = pushUrlForItemId_(base, spec.basePath, item.id);
+    var resp = httpDeleteBearer_(delUrl, token);
     var code = resp.getResponseCode();
+    var rawD = resp.getContentText();
     if (code >= 200 && code < 300) {
       dOk++;
       writePushRowResult_(sheet, item.rowIndex, spec, -1);
     } else {
       errCount++;
       writePushRowResult_(sheet, item.rowIndex, spec,
-        'DELETE FAIL HTTP ' + code + ': ' + resp.getContentText().slice(0, 120));
+        pushMutationErrorLine_('DELETE', code, rawD));
     }
   }
 
@@ -119,32 +140,41 @@ function runPushForSpec_(sheet, spec, base, token) {
     }
     var resp = httpPostBearer_(base + spec.basePath, token, body);
     var code = resp.getResponseCode();
+    var rawC = resp.getContentText();
     if (code >= 200 && code < 300) {
       cOk++;
-      var created = parseJsonSafe_(resp.getContentText()) || {};
+      var created = parseJsonSafe_(rawC) || {};
       var newId   = created.id != null ? created.id : null;
       if (newId != null) sheet.getRange(item.rowIndex, spec.idCol).setValue(newId);
       writePushRowResult_(sheet, item.rowIndex, spec, 1);
     } else {
       errCount++;
       writePushRowResult_(sheet, item.rowIndex, spec,
-        'CREATE FAIL HTTP ' + code + ': ' + resp.getContentText().slice(0, 120));
+        pushMutationErrorLine_('CREATE', code, rawC));
     }
   }
 
+  // 업데이트: 노트는 patchBodyIdOnly → PATCH URL 에 id 없음, 바디에 id (models/notes.js).
   for (var u = 0; u < updates.length; u++) {
     var item = updates[u];
     var body = buildRequestBody_(item.rowData, spec) || {};
-    var url  = base + spec.basePath + encodeURIComponent(String(item.id));
-    var resp = httpPatchBearer_(url, token, body);
+    var patchUrl;
+    if (spec.patchBodyIdOnly) {
+      patchUrl = base + spec.basePath;
+      body.id = Number(item.id);
+    } else {
+      patchUrl = pushUrlForItemId_(base, spec.basePath, item.id);
+    }
+    var resp = httpPatchBearer_(patchUrl, token, body);
     var code = resp.getResponseCode();
+    var rawU = resp.getContentText();
     if (code >= 200 && code < 300) {
       uOk++;
       writePushRowResult_(sheet, item.rowIndex, spec, 2);
     } else {
       errCount++;
       writePushRowResult_(sheet, item.rowIndex, spec,
-        'PATCH FAIL HTTP ' + code + ': ' + resp.getContentText().slice(0, 120));
+        pushMutationErrorLine_('PATCH', code, rawU));
     }
   }
 

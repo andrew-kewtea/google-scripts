@@ -85,7 +85,11 @@ function runSignup_(sh) {
   var code = resp.getResponseCode();
   var raw = resp.getContentText();
   var json = parseJsonSafe_(raw);
-  sh.getRange(CELL_SIGNUP_MESSAGE).setValue(formatHttpResult_(code, raw, json));
+  var msg =
+    code >= 200 && code < 300
+      ? formatHttpResult_(code, raw, json)
+      : formatApiErrorBrief_(code, raw, json);
+  sh.getRange(CELL_SIGNUP_MESSAGE).setValue(msg);
 }
 
 function runLogin_(sh) {
@@ -116,7 +120,7 @@ function runLogin_(sh) {
     sh.getRange(CELL_OUT_ACCESS).setValue('');
     sh.getRange(CELL_OUT_REFRESH).setValue('');
     sh.getRange(CELL_OUT_EXPIRE_REFRESH).setValue('fail');
-    throw new Error('Login 실패 — G7에 fail 표시됨.');
+    throw new Error(formatApiErrorBrief_(code, raw, json));
   }
 }
 
@@ -143,7 +147,7 @@ function runRefreshAccess_(sh) {
     }
     return;
   }
-  throw new Error(formatHttpResult_(code, raw, json));
+  throw new Error(formatApiErrorBrief_(code, raw, json));
 }
 
 function signupFromSheet() {

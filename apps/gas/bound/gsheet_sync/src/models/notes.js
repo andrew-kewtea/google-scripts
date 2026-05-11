@@ -127,6 +127,8 @@ function attachmentCount_(note) {
   if (note == null) return 0;
   if (note.attachments_num != null) return Number(note.attachments_num);
   if (note.attachment_count != null) return Number(note.attachment_count);
+  // fast2 NoteSummary / PostSummary — 피벗·연결 집계
+  if (note.associations_num != null) return Number(note.associations_num);
   if (Array.isArray(note.attachments)) return note.attachments.length;
   return 0;
 }
@@ -166,6 +168,13 @@ var NOTES_PUSH_SPEC = {
   resourceLabel:    NOTES_RESOURCE_MODEL,
   sheetGid:         NOTES_SHEET_GID,
   basePath:         API_PREFIX + '/notes/',
+  /**
+   * 노트 갱신만 경로와 바디 규칙이 다르다 (당분간 계약).
+   * - fast2 ``PATCH /api/v1/notes/`` — URL 에는 note id 를 넣지 않고, JSON 바디의 ``id`` 로 대상을 지정한다 ( ``schemas.note.NotePatch`` ).
+   * - 포스트·유저 등은 ``PATCH …/{id}`` 이므로 ``patchBodyIdOnly`` 가 없거나 false 인 스펙은 ``push.js`` 가 ``basePath`` + ``/`` + id 로 만든다.
+   * 나중에 서버가 ``PATCH /notes/{id}`` 로 바꾸면 이 플래그와 ``push.js`` 분기를 제거하면 된다.
+   */
+  patchBodyIdOnly: true,
   layout: {
     dataFirstRow:   NOTES_DATA_FIRST_ROW,
     numCols:        NOTES_DATA_NUM_COLS,

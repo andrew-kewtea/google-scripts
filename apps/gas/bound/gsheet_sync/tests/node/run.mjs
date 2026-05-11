@@ -85,6 +85,27 @@ check('parseListEnvelope total', env.total === 42 && env.items.length === 1);
 var env2 = envSandbox.parseListEnvelope_({ data: { items: [{ x: 1 }] }, total: 0 });
 check('parseListEnvelope nested data.items', env2.items.length === 1);
 
+// --- 4) formatApiErrorBrief_ (http.js) ---
+var httpSandbox = {};
+runInGasContext(loadGasFile('http.js'), httpSandbox);
+var brief = httpSandbox.formatApiErrorBrief_(422, '', {
+  detail: 'bad request',
+  code: 'REQ',
+});
+check(
+  'formatApiErrorBrief detail + code',
+  brief.indexOf('bad request') >= 0 && brief.indexOf('REQ') >= 0
+);
+var brief422 = httpSandbox.formatApiErrorBrief_(422, '', {
+  detail: 'Request validation failed',
+  code: 'REQUEST_VALIDATION_ERROR',
+  details: { errors: [{ loc: ['body', 'email'], msg: 'invalid email' }] },
+});
+check(
+  'formatApiErrorBrief appends details.errors',
+  brief422.indexOf('Request validation failed') >= 0 && brief422.indexOf('email') >= 0
+);
+
 if (failed) {
   console.error('\n' + failed + ' test(s) failed');
   process.exit(1);

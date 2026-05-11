@@ -8,7 +8,7 @@
 ## 1. 인증·토큰
 
 - Access 만료 시: settings 탭에서「Refresh access token」(G6 → `POST .../auth/token` → G5 갱신). refresh 만료 시 재 로그인.
-- (선택) 401 응답 본문이 `{ detail, code, details }` 로 통일됨 — `formatHttpResult_` / 알림 문구에 `code` 표시 여부 검토.
+- 오류 본문은 `http.formatApiErrorBrief_` 가 `{ detail, code, details.errors }` 를 요약한다(Pull/Push/login 실패 알림·refresh 예외·signup 실패 셀 E8 등). 성공 signup 응답만 `formatHttpResult_` 로 전체 JSON 표시.
 
 ---
 
@@ -19,10 +19,9 @@
 
 ---
 
-## 3. Push / 단건 연동 (미구현 영역)
+## 3. Push / 단건 연동
 
-- 노트·포스트 **쓰기** 연동은 별도 설계. 노트는 `PATCH /notes/` + 본문 `id` 규칙을 반드시 따를 것.
-- 에러 본문 통일에 맞춰 실패 시 사용자 메시지 파싱 로직이 있으면 `detail`/`code` 기준으로 정리.
+- 스크립트는 노트·포스트·유저 Push(list Pull과 별개)를 `push.js` + `models/*` 스펙으로 처리한다. 노트는 `PATCH /notes/` + 바디 `id`(경로에 id 없음).
 
 ---
 

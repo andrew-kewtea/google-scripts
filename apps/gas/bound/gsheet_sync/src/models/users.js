@@ -2,6 +2,29 @@
  * users Pull/Push 스pec — ``GET {API_PREFIX}/users`` (목록 경로 끝 슬래시 없음).
  * listQuery: notes 와 동일하되 E열 필터만 ``status`` 로 전송(Tag/q 대신).
  * 탭 레이아웃: 메시지·동기 시각 F4/H4.
+ *
+ * Swagger/OpenAPI( ``schemas/user.py`` ) 타입명 · 배포 docs 의 서버 base 와 맞출 것:
+ *
+ * **목록** ``GET {API_PREFIX}/users``
+ * - 쿼리 스키마: ``UserListRequest`` — ``page``, ``size``, ``sort``, ``order``, ``q`` 등이 문서에 묶여 있음.
+ *   시트 파라미터 행에는 필요 시 ``view`` 를 더 넣을 수 있음(현재 키 배열에는 없음).
+ * - 응답: ``UserListResponse`` — ``items``, ``total`` 및 ``page``, ``size``, ``sort``, ``order``(다른 리소스 ``ListResponse`` 계열과 동일).
+ *   ``list_envelope.js`` 의 ``parseListEnvelope_`` 가 추가 필드를 이미 수용한다.
+ * - ``items[]`` 요소: ``UserSummary``. 목록 JSON 에는 ``password`` / ``google`` / ``phone`` / ``role`` 등이 빠짐(민감·상세 필드).
+ *   이 스크립트의 ``userToSheetRow_`` 도 해당 열을 쓰지 않음.
+ *
+ * **단건** ``GET {API_PREFIX}/users/{user_id}``
+ * - 응답: ``UserDetail``( ``phone``, ``role`` 등 포함). 이 프로젝트는 목록 Pull 만 구현 — 단건 연동 시 여기 참고.
+ *
+ * **생성** ``POST {API_PREFIX}/users``
+ * - 본문: ``UserCreate``. ``email``·``phone``·``google`` 중 하나 필수. 스프레드시트에서는 보통 ``email`` 열만 채움.
+ *
+ * **부분 수정** ``PATCH {API_PREFIX}/users/{user_id}``
+ * - 본문: ``UserPatch``. ``extra="ignore"``. 저장 시 ``role`` → DB ``scopes``(리포지토리 preprocess).
+ *
+ * **삭제** ``DELETE {API_PREFIX}/users/{user_id}`` — 경로·204 바디 없음 은 그대로.
+ *
+ * ``main.py`` 의 ``config.API_PREFIX`` 가 바뀌면 여기 ``API_PREFIX``( ``10_constants.js`` )와 Swagger 의 서버 URL 을 맞춘다.
  */
 
 var USERS_RESOURCE_MODEL = 'users';
@@ -97,7 +120,8 @@ var USERS_PULL_SPEC = {
 var USERS_PUSH_SPEC = {
   resourceLabel: USERS_RESOURCE_MODEL,
   sheetGid: USERS_SHEET_GID,
-  basePath: API_PREFIX + '/users/',
+  /** ``POST /users`` 는 끝 슬래시 없음. DELETE/PATCH 는 ``push.js`` 가 ``…/users/<id>`` 로 조합한다. */
+  basePath: API_PREFIX + '/users',
   layout: {
     dataFirstRow: USERS_DATA_FIRST_ROW,
     numCols: USERS_DATA_NUM_COLS,
@@ -108,6 +132,7 @@ var USERS_PUSH_SPEC = {
   idCol: 1,
   lastUpdatedAtCol: 2,
   extraCreateRows: USERS_EXTRA_CREATE_ROWS,
+  /** ``buildRequestBody_`` JSON 은 ``UserCreate`` / ``UserPatch`` 스네이크 키. 생략 필드는 보내지 않음. POST 성공 응답은 ``UserDetail``. */
   requestCols: [
     { col: 3, field: 'name', required: true },
     { col: 4, field: 'uname', transform: 'text' },

@@ -39,7 +39,7 @@ function runPullList_(resourceSheet, spec) {
     var json = parseJsonSafe_(raw);
 
     if (code < 200 || code >= 300) {
-      msg = formatHttpResult_(code, raw, json);
+      msg = formatApiErrorBrief_(code, raw, json);
     } else {
       var env = parseListEnvelope_(json);
       var rows = [];

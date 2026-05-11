@@ -57,6 +57,45 @@ function formatHttpResult_(code, raw, json) {
   return head + '\n' + raw;
 }
 
+/**
+ * ``REQUEST_VALIDATION_ERROR`` 등에서 FastAPI 가 넣는 ``details.errors`` ( ``[{loc,msg,type}]`` )를 스프레드시트에 읽기 쉬운 몇 줄로 붙인다.
+ */
+function formatValidationErrorsAppendix_(details) {
+  if (!details || typeof details !== 'object') return '';
+  var errs = details.errors;
+  if (!Array.isArray(errs) || !errs.length) return '';
+  var lines = [];
+  for (var i = 0; i < errs.length && i < 8; i++) {
+    var e = errs[i];
+    if (!e || typeof e !== 'object') continue;
+    var loc = Array.isArray(e.loc) ? e.loc.filter(Boolean).join('.') : '';
+    var msg = e.msg != null ? String(e.msg) : '';
+    if (!msg && e.type != null) msg = String(e.type);
+    var one = (loc ? loc + ': ' : '') + msg;
+    if (one) lines.push(one);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * 백엔드 공통 오류 JSON( ``controllers/deps/exception_handlers.api_error_payload`` ):
+ * ``{ detail, code, details }`` 가 있으면 ``detail`` + ``code`` 한 줄 요약.
+ * ``details.errors`` 가 있으면(422 등) 그 아래에 필드별 메시지를 덧붙인다.
+ * 성공 응답·레거시 본문은 ``formatHttpResult_`` 로 폴백한다.
+ */
+function formatApiErrorBrief_(code, raw, json) {
+  var head = 'HTTP ' + code;
+  if (json && typeof json === 'object' && json.detail != null) {
+    var d = String(json.detail);
+    var c = json.code != null ? String(json.code) : '';
+    var line = head + ': ' + d + (c ? ' [' + c + ']' : '');
+    var appendix = formatValidationErrorsAppendix_(json.details);
+    if (appendix) line += '\n' + appendix;
+    return line;
+  }
+  return formatHttpResult_(code, raw, json);
+}
+
 function parseJsonSafe_(text) {
   if (!text) return null;
   try {

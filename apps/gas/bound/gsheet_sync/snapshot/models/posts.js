@@ -64,6 +64,7 @@ function postToSheetRow_(post) {
       : formatTagsForSheet_(post.tags);
   var attachN = 0;
   if (post.attachments_num != null) attachN = Number(post.attachments_num);
+  else if (post.associations_num != null) attachN = Number(post.associations_num);
   else attachN = attachmentCount_(post);
   var draftRaw = pick_(post, ['is_draft', 'isDraft']);
   var isDraft = draftRaw === '' ? '' : Boolean(draftRaw);

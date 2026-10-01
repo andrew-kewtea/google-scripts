@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "sidenote",
+  "version": "0.1.0",
+  "description": "Jot a note on the page you are visiting. Local draft first; kchloe sync comes later.",
+  "permissions": ["sidePanel", "storage", "activeTab", "scripting"],
+  "host_permissions": ["https://api.kchloe.co/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "sidenote"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  }
+}

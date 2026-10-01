@@ -4,21 +4,36 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@google/clasp':
+      specifier: 3.3.0
+      version: 3.3.0
+    '@types/chrome':
+      specifier: ^0.1.0
+      version: 0.1.43
+    typescript:
+      specifier: ~5.9.0
+      version: 5.9.3
+
 importers:
 
   .: {}
 
+  apps/chrome/sidenote:
+    devDependencies:
+      '@types/chrome':
+        specifier: 'catalog:'
+        version: 0.1.43
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   apps/gas/bound/gsheet_sync:
     devDependencies:
       '@google/clasp':
-        specifier: ^3.3.0
-        version: 3.3.0(@types/node@20.19.39)
-
-  apps/gas/bound/ts_gsheet_sync:
-    devDependencies:
-      '@types/google-apps-script':
-        specifier: ^2.0.8
-        version: 2.0.8
+        specifier: 'catalog:'
+        version: 3.3.0(@types/node@20.19.39)(typescript@5.9.3)
 
 packages:
 
@@ -216,8 +231,17 @@ packages:
       '@cfworker/json-schema':
         optional: true
 
-  '@types/google-apps-script@2.0.8':
-    resolution: {integrity: sha512-mGPmzzdgBu1DlwrjOhFQ8u0se6AF/z4OpaTzOGwNKxwXZjE7J+IssfE3oL24j/S/p6aFiSTIptHZvbyqeZD8vA==}
+  '@types/chrome@0.1.43':
+    resolution: {integrity: sha512-ukH/HhmR6ht+UTX3PLUWJxgJ/RQcK2Foj4lBzsF24SIWsXgqhGuXqjd8FFuwioPP7d/JUKLM4g8GZxw3F4HTcA==}
+
+  '@types/filesystem@0.0.36':
+    resolution: {integrity: sha512-vPDXOZuannb9FZdxgHnqSwAG/jvdGM8Wq+6N4D/d80z+D4HWH+bItqsZaVRQykAn6WEVeEkLm2oQigyHtgb0RA==}
+
+  '@types/filewriter@0.0.33':
+    resolution: {integrity: sha512-xFU8ZXTw4gd358lb2jw25nxY9QAgqn2+bKKjKOYfNCzN4DKCFetK7sPtrlpg66Ywe3vWY9FNxprZawAh9wfJ3g==}
+
+  '@types/har-format@1.2.16':
+    resolution: {integrity: sha512-fluxdy7ryD3MV6h8pTfTYpy/xQzCFC7m89nOH9y94cNqJ1mDIDPut7MnRHI3F6qRmh/cT2fUjG1MLdCNb4hE9A==}
 
   '@types/mute-stream@0.0.1':
     resolution: {integrity: sha512-0yQLzYhCqGz7CQPE3iDmYjhb7KMBFOP+tBkyw+/Y2YyDI5wpS7itXXxneN1zSsUwWx3Ji6YiVYrhAnpQGS/vkw==}
@@ -1049,6 +1073,11 @@ packages:
     resolution: {integrity: sha512-OZs6gsjF4vMp32qrCbiVSkrFmXtG/AZhY3t0iAMrMBiAZyV9oALtXO8hsrHbMXF9x6L3grlFuwW2oAz7cav+Gw==}
     engines: {node: '>= 0.6'}
 
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
@@ -1149,17 +1178,19 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@formatjs/intl@3.1.8':
+  '@formatjs/intl@3.1.8(typescript@5.9.3)':
     dependencies:
       '@formatjs/ecma402-abstract': 2.3.6
       '@formatjs/fast-memoize': 2.2.7
       '@formatjs/icu-messageformat-parser': 2.11.4
       intl-messageformat: 10.7.18
       tslib: 2.8.1
+    optionalDependencies:
+      typescript: 5.9.3
 
-  '@google/clasp@3.3.0(@types/node@20.19.39)':
+  '@google/clasp@3.3.0(@types/node@20.19.39)(typescript@5.9.3)':
     dependencies:
-      '@formatjs/intl': 3.1.8
+      '@formatjs/intl': 3.1.8(typescript@5.9.3)
       '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
       chalk: 5.6.2
       chokidar: 4.0.3
@@ -1366,7 +1397,18 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@types/google-apps-script@2.0.8': {}
+  '@types/chrome@0.1.43':
+    dependencies:
+      '@types/filesystem': 0.0.36
+      '@types/har-format': 1.2.16
+
+  '@types/filesystem@0.0.36':
+    dependencies:
+      '@types/filewriter': 0.0.33
+
+  '@types/filewriter@0.0.33': {}
+
+  '@types/har-format@1.2.16': {}
 
   '@types/mute-stream@0.0.1':
     dependencies:
@@ -2188,6 +2230,8 @@ snapshots:
       content-type: 1.0.5
       media-typer: 1.1.0
       mime-types: 3.0.2
+
+  typescript@5.9.3: {}
 
   undici-types@6.21.0: {}
 

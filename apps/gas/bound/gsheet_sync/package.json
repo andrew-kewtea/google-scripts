@@ -2,11 +2,13 @@
   "name": "gsheet_sync",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "test": "node tests/node/run.mjs"
+    "test": "node tests/node/run.mjs",
+    "status": "clasp status -P ./.clasp.json",
+    "push": "clasp push -P ./.clasp.json",
+    "pull:snapshot": "clasp pull -P snapshot/.clasp.json"
   },
   "devDependencies": {
-    "@google/clasp": "^3.3.0"
+    "@google/clasp": "catalog:"
   }
 }

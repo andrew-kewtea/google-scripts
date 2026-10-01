@@ -1,0 +1,85 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", sans-serif;
+  background: #f6f7f4;
+  color: #1c1c1c;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+}
+
+header h1,
+section h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.mark {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #3d6bff;
+}
+
+.muted,
+.url,
+.status {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #555;
+}
+
+.url {
+  word-break: break-all;
+}
+
+label {
+  display: block;
+  margin: 12px 0 4px;
+  font-size: 12px;
+}
+
+input,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 8px;
+  font: inherit;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #1c1c1c;
+  color: white;
+  cursor: pointer;
+}
+
+#notes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#notes li {
+  padding: 8px 0;
+  border-top: 1px solid #ddd;
+  font-size: 13px;
+}
+
+#notes small {
+  display: block;
+  color: #666;
+}

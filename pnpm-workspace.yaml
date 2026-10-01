@@ -1,5 +1,12 @@
-# pnpm-workspace.yaml
+# Workspace members are products, not category folders.
+# Future globs, add only when the directory has a package.json:
+#   - "apps/gas/standalone/*"   # unbound GAS / libraries
+#   - "shared/*"                # shared libs, deferred
 packages:
-  - "apps/*" # 실제 실행되는 애플리케이션들
-  - "apps/gas/*/*"
-  - "shared/*"
+  - "apps/gas/bound/*"
+  - "apps/chrome/*"
+
+catalog:
+  typescript: ~5.9.0
+  "@google/clasp": 3.3.0
+  "@types/chrome": ^0.1.0

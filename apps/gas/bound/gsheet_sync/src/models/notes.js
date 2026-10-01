@@ -2,7 +2,7 @@
  * notes Pull/Push 스펙·시트 레이아웃·``{API_PREFIX}/notes/`` list_query 규약.
  * ``API_PREFIX`` 는 ``10_constants.js``.
  *
- * 새 모델 추가: ``readme_mode.txt`` · ``30_registry.js`` 에 gid 등록.
+ * 새 모델 추가: documents/specs/products/gsheet_sync/spec.md · ``30_registry.js`` 에 gid 등록.
  */
 
 var NOTES_RESOURCE_MODEL = 'notes';

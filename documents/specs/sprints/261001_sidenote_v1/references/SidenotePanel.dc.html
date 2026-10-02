@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..400,0..1,0&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;}
+input,textarea,select,button{font-family:inherit;}
+a{color:#5d7fa8;text-decoration:none;}
+a:hover{color:#3f6390;text-decoration:underline;}
+@keyframes snFade{from{opacity:0}to{opacity:1}}
+@keyframes snPop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="height:{{ rootH }};min-height:{{ rootMinH }};width:max-content;position:relative;display:flex;font-family:'Jost',system-ui,sans-serif;font-weight:400;color:#1f1e1c;font-size:14px;box-shadow:-14px 0 40px rgba(30,28,24,.20);background:#fbf9f4;">
+
+  <!-- ============ COLUMN 1 ============ -->
+  <div style="width:360px;flex:none;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#fbf9f4;position:relative;">
+    <div style="height:46px;flex:none;background:#2b2a27;display:flex;align-items:center;justify-content:flex-end;gap:2px;padding:0 6px;">
+      <button onClick="{{ toggleExpand }}" title="{{ expandTitle }}" style="width:34px;height:34px;border:none;background:transparent;color:#f4f1ea;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:rgba(255,255,255,.1);"><span style="font-family:'Material Symbols Outlined';font-size:21px;line-height:1;">{{ expandIcon }}</span></button>
+      <button onClick="{{ close }}" title="Close" style="width:34px;height:34px;border:none;background:transparent;color:#f4f1ea;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:rgba(255,255,255,.1);"><span style="font-family:'Material Symbols Outlined';font-size:21px;line-height:1;">close</span></button>
+    </div>
+
+    <!-- About -->
+    <div onClick="{{ tAbout }}" style="flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;background:#f3efe6;border-bottom:1px solid #e6e1d6;cursor:pointer;user-select:none;">
+      <span style="font-size:15px;font-weight:500;">About</span>
+      <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;color:#8b877e;line-height:1;">{{ chevAbout }}</span>
+    </div>
+    <div style="flex:0 1 auto;max-height:{{ mhAbout }};min-height:0;overflow-y:auto;overflow-x:hidden;border-bottom:{{ bdAbout }};transition:max-height .3s cubic-bezier(.2,.8,.2,1);">
+      <sc-if value="{{ aboutView }}" hint-placeholder-val="{{ true }}">
+        <div onClick="{{ editAbout }}" style="padding:14px 16px 14px;display:flex;flex-direction:column;gap:10px;cursor:text;" style-hover="background:#f8f5ee;">
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <span style="font-size:15.5px;">{{ aboutTitle }}</span>
+            <div style="display:flex;align-items:center;gap:4px;min-width:0;"><span style="flex:1;min-width:0;font-size:12.5px;color:#8b877e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ aboutUrl }}</span><button onClick="{{ openPat }}" title="URL patterns" style="width:24px;height:24px;flex:none;border:none;background:transparent;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#b3ada1;margin-right:-4px;" style-hover="background:#ece6d8;color:#5c5850;"><span style="font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">tune</span></button></div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <sc-for list="{{ aboutTags }}" as="t" hint-placeholder-count="2">
+              <span style="font-size:12.5px;color:#5c5850;background:#ece6d8;border-radius:99px;padding:2px 10px;">#{{ t.name }}</span>
+            </sc-for>
+          </div>
+                  </div>
+        <div style="padding:6px 8px 8px;border-top:1px solid #efebe2;">
+          <sc-for list="{{ treeRows }}" as="r" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:2px;height:30px;padding-left:{{ r.pad }};padding-right:8px;border-radius:6px;background:{{ r.bg }};" style-hover="background:#f3efe6;">
+              <span onClick="{{ r.toggle }}" style="width:20px;height:20px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;color:#8b877e;font-family:'Material Symbols Outlined';font-size:18px;line-height:1;">{{ r.chev }}</span>
+              <a href="{{ r.href }}" target="_blank" rel="noopener" title="Open in new tab" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:{{ r.color }};">{{ r.label }}</a>
+              <span style="font-size:12px;color:#8b877e;">{{ r.count }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ aboutEditing }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;">
+          <input value="{{ aTitle }}" onChange="{{ setATitle }}" style="height:34px;box-sizing:border-box;padding:0 10px;border:1px dashed #a9a293;border-radius:6px;background:#fff;font-size:15px;outline:none;">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+            <sc-for list="{{ aTags }}" as="t" hint-placeholder-count="2">
+              <span style="display:flex;align-items:center;gap:4px;height:26px;padding:0 6px 0 11px;border-radius:99px;background:#2b2a27;color:#f4f1ea;font-size:12.5px;">#{{ t.name }}<span onClick="{{ t.remove }}" style="font-family:'Material Symbols Outlined';font-size:14px;cursor:pointer;line-height:1;">close</span></span>
+            </sc-for>
+            <input value="{{ tagInput }}" onChange="{{ setTagInput }}" onKeyDown="{{ tagKey }}" placeholder="Enter to add tag" style="height:28px;flex:1;min-width:120px;box-sizing:border-box;padding:0 12px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;outline:none;">
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button onClick="{{ saveAbout }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Save</button>
+            <button onClick="{{ cancelAbout }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Cancel</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- Notes -->
+    <div onClick="{{ tNotes }}" style="flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;background:#f3efe6;border-bottom:1px solid #e6e1d6;cursor:pointer;user-select:none;">
+      <span style="font-size:15px;font-weight:500;">Notes</span>
+      <span style="font-size:12px;color:#8b877e;">{{ noteCount }}</span>
+      <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;color:#8b877e;line-height:1;">{{ chevNotes }}</span>
+    </div>
+    <div style="flex:{{ fNotes }};min-height:{{ mNotes }};overflow-y:auto;overflow-x:hidden;border-bottom:{{ bdNotes }};position:relative;transition:flex-grow .3s cubic-bezier(.2,.8,.2,1),min-height .3s cubic-bezier(.2,.8,.2,1);">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;padding:6px 10px;position:relative;">
+          <button onClick="{{ openSort }}" title="Sort" style="display:flex;align-items:center;height:30px;padding:0 2px 0 6px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#5c5850;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:19px;line-height:1;">sort</span><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;color:#b3ada1;">arrow_drop_down</span></button>
+          <button onClick="{{ addNote }}" title="New note" style="width:30px;height:30px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1f1e1c;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:22px;line-height:1;">add</span></button>
+          <sc-if value="{{ sortOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:38px;right:44px;z-index:5;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(30,28,24,.16);padding:6px;width:160px;">
+              <sc-for list="{{ sortItems }}" as="m" hint-placeholder-count="2">
+                <div onClick="{{ m.pick }}" style="display:flex;align-items:center;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:13.5px;" style-hover="background:#f3efe6;"><span>{{ m.label }}</span><span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">{{ m.check }}</span></div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <sc-for list="{{ notes }}" as="item" hint-placeholder-count="3">
+          <div style="padding:12px 16px 14px;border-top:1px solid #efebe2;display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#8b877e;position:relative;">
+              <span>{{ item.time }}</span>
+              <span style="color:#b3ada1;">{{ item.edited }}</span>
+              <button onClick="{{ item.openMenu }}" title="{{ item.visLabel }}" style="display:flex;align-items:center;border:none;background:transparent;cursor:pointer;color:#5c5850;padding:2px 2px 2px 4px;border-radius:6px;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">{{ item.visIcon }}</span><span style="font-family:'Material Symbols Outlined';font-size:16px;line-height:1;color:#b3ada1;">arrow_drop_down</span></button>
+              <sc-if value="{{ item.menuOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:24px;left:80px;z-index:5;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(30,28,24,.16);padding:6px;width:160px;">
+                  <sc-for list="{{ item.menuItems }}" as="m" hint-placeholder-count="4">
+                    <div onClick="{{ m.pick }}" style="display:flex;align-items:center;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:13.5px;" style-hover="background:#f3efe6;"><span>{{ m.label }}</span><span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">{{ m.check }}</span></div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+            <sc-if value="{{ item.notEditing }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ item.startEdit }}" style="font-size:14.5px;line-height:1.55;cursor:text;text-wrap:pretty;">{{ item.text }}</div>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12.5px;color:#8b877e;">
+                <span>{{ item.col }}</span>
+                <sc-for list="{{ item.kws }}" as="k" hint-placeholder-count="0"><span>#{{ k.name }}</span></sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ item.isEditing }}" hint-placeholder-val="{{ false }}">
+              <textarea value="{{ item.draft }}" onChange="{{ item.onDraft }}" placeholder="Jot down on the side…" style="min-height:92px;resize:vertical;box-sizing:border-box;width:100%;padding:10px 12px;border:1px dashed #a9a293;border-radius:6px;background:#fff;font-size:14.5px;line-height:1.55;color:#1f1e1c;outline:none;"></textarea>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
+                <select value="{{ item.draftCol }}" onChange="{{ item.onCol }}" style="height:30px;padding:0 8px;border:1px dashed #d4cdbd;border-radius:6px;background:transparent;font-size:13px;color:#1f1e1c;outline:none;cursor:pointer;max-width:160px;">
+                  <sc-for list="{{ colNames }}" as="c" hint-placeholder-count="3"><option value="{{ c.name }}">{{ c.name }}</option></sc-for>
+                </select>
+                <input value="{{ item.kwInput }}" onChange="{{ item.onKwInput }}" onKeyDown="{{ item.onKwKey }}" placeholder="Enter to create keyword" style="height:30px;flex:1;min-width:130px;box-sizing:border-box;padding:0 12px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;outline:none;">
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <sc-for list="{{ item.draftKws }}" as="k" hint-placeholder-count="0">
+                  <span style="display:flex;align-items:center;gap:4px;height:26px;padding:0 6px 0 11px;border-radius:99px;background:#2b2a27;color:#f4f1ea;font-size:12.5px;">#{{ k.name }}<span onClick="{{ k.remove }}" style="font-family:'Material Symbols Outlined';font-size:14px;cursor:pointer;line-height:1;">close</span></span>
+                </sc-for>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:8px;">
+                <button onClick="{{ item.save }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Save</button>
+                <button onClick="{{ item.cancel }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Cancel</button>
+                <button onClick="{{ item.remove }}" style="height:30px;padding:0 14px;border:1px solid #b5523f;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#b5523f;" style-hover="background:#fbefeb;">Delete</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ noNotes }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px;color:#8b877e;font-size:13.5px;">No notes yet.</div>
+        </sc-if>
+      </div>
+
+    <!-- History -->
+    <div onClick="{{ tHistory }}" style="flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;background:#f3efe6;border-bottom:1px solid #e6e1d6;cursor:pointer;user-select:none;">
+      <span style="font-size:15px;font-weight:500;">History</span>
+      <span style="font-size:12px;color:#8b877e;">{{ histCount }}</span>
+      <span title="Recording" style="width:7px;height:7px;border-radius:99px;background:#8fb08a;"></span>
+      <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;color:#8b877e;line-height:1;">{{ chevHistory }}</span>
+    </div>
+    <div style="flex:{{ fHistory }};min-height:{{ mHistory }};overflow-y:auto;overflow-x:hidden;border-bottom:{{ bdHistory }};transition:flex-grow .3s cubic-bezier(.2,.8,.2,1),min-height .3s cubic-bezier(.2,.8,.2,1);">
+        <div style="display:flex;align-items:center;justify-content:flex-end;padding:6px 10px;position:relative;">
+          <button onClick="{{ openFilter }}" title="Filter" style="display:flex;align-items:center;height:30px;padding:0 2px 0 6px;border:none;background:{{ filterBg }};border-radius:8px;cursor:pointer;color:#5c5850;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:19px;line-height:1;">{{ filterIcon }}</span><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;color:#b3ada1;">arrow_drop_down</span></button>
+          <sc-if value="{{ filterOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:38px;right:10px;z-index:5;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(30,28,24,.16);padding:6px;width:180px;">
+              <sc-for list="{{ filterItems }}" as="m" hint-placeholder-count="5">
+                <div onClick="{{ m.pick }}" style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:13.5px;" style-hover="background:#f3efe6;"><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;color:#8b877e;">{{ m.icon }}</span><span>{{ m.label }}</span><span style="margin-left:auto;font-size:12px;color:#b3ada1;">{{ m.count }}</span><span style="font-family:'Material Symbols Outlined';font-size:16px;line-height:1;width:16px;">{{ m.check }}</span></div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <sc-for list="{{ history }}" as="item" hint-placeholder-count="6">
+          <div onClick="{{ item.select }}" style="display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:10px;padding:10px 16px;border-top:1px solid #efebe2;background:{{ item.rowBg }};cursor:pointer;">
+            <span style="font-family:'Material Symbols Outlined';font-size:18px;line-height:20px;color:#8b877e;">{{ item.icon }}</span>
+            <div style="min-width:0;display:flex;flex-direction:column;gap:3px;">
+              <sc-if value="{{ item.notEditing }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:13.5px;line-height:1.45;text-wrap:pretty;">{{ item.text }}</div>
+                <div style="font-size:12px;color:#8b877e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.sub }}</div>
+              </sc-if>
+              <sc-if value="{{ item.isEditing }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ stop }}" style="display:flex;flex-direction:column;gap:6px;">
+                  <textarea value="{{ histDraft }}" onChange="{{ setHistDraft }}" style="min-height:64px;resize:vertical;box-sizing:border-box;width:100%;padding:8px 10px;border:1px dashed #a9a293;border-radius:6px;background:#fff;font-size:13.5px;line-height:1.45;outline:none;"></textarea>
+                  <div style="display:flex;justify-content:flex-end;gap:6px;">
+                    <button onClick="{{ saveHist }}" style="height:28px;padding:0 12px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:12.5px;cursor:pointer;">Save</button>
+                    <button onClick="{{ cancelHist }}" style="height:28px;padding:0 12px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:12.5px;cursor:pointer;">Cancel</button>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ item.showActions }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:2px;margin:2px 0 0 -6px;">
+                  <button onClick="{{ item.edit }}" title="Edit" style="width:28px;height:28px;border:none;border-radius:6px;background:transparent;cursor:pointer;color:#5c5850;display:flex;align-items:center;justify-content:center;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;">edit</span></button>
+                  <button onClick="{{ item.remove }}" title="Remove" style="width:28px;height:28px;border:none;border-radius:6px;background:transparent;cursor:pointer;color:#b5523f;display:flex;align-items:center;justify-content:center;" style-hover="background:#fbefeb;"><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;">delete</span></button>
+                </div>
+              </sc-if>
+            </div>
+            <span style="font-size:12px;color:#8b877e;line-height:20px;">{{ item.time }}</span>
+          </div>
+        </sc-for>
+        <sc-if value="{{ hasMoreHist }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;justify-content:center;padding:12px 16px 14px;border-top:1px solid #efebe2;"><button onClick="{{ moreHist }}" style="display:flex;align-items:center;justify-content:center;height:32px;padding:0 18px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;color:#5c5850;cursor:pointer;" style-hover="background:#f3efe6;">Show more</button></div>
+        </sc-if>
+      </div>
+    <sc-if value="{{ patModal }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closePat }}" style="position:absolute;inset:0;z-index:20;background:rgba(31,30,28,.28);display:flex;align-items:flex-start;justify-content:center;padding-top:110px;animation:snFade .18s ease;">
+        <div onClick="{{ stop }}" style="width:328px;max-height:70%;background:#fbf9f4;border-radius:12px;box-shadow:0 20px 50px rgba(30,28,24,.28);display:flex;flex-direction:column;overflow:hidden;animation:snPop .22s cubic-bezier(.2,.8,.2,1);">
+          <div style="flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 8px 0 16px;border-bottom:1px solid #e6e1d6;">
+            <span style="font-size:15px;font-weight:500;">URL patterns</span>
+            <span style="font-size:12px;color:#8b877e;">{{ pCount }}</span>
+            <button onClick="{{ closePat }}" title="Close" style="margin-left:auto;width:30px;height:30px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#5c5850;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:19px;line-height:1;">close</span></button>
+          </div>
+          <div style="flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:6px;">
+            <sc-for list="{{ pPatterns }}" as="p" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input value="{{ p.value }}" onChange="{{ p.set }}" style="flex:1;min-width:0;height:32px;box-sizing:border-box;padding:0 12px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;outline:none;">
+                <button onClick="{{ p.remove }}" title="Remove" style="width:28px;height:28px;flex:none;border:none;background:transparent;border-radius:6px;cursor:pointer;color:#8b877e;display:flex;align-items:center;justify-content:center;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;">close</span></button>
+              </div>
+            </sc-for>
+            <input value="{{ patInput }}" onChange="{{ setPatInput }}" onKeyDown="{{ patKey }}" placeholder="Add pattern · Enter" style="height:32px;box-sizing:border-box;margin-right:32px;padding:0 12px;border:1px dashed #d4cdbd;border-radius:99px;background:transparent;font-size:13px;outline:none;">
+            <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;color:#5c5850;cursor:pointer;"><input type="checkbox" checked="{{ pIgnore }}" onChange="{{ togglePIgnore }}" style="accent-color:#2b2a27;margin:0;">Ignore ?query and #hash</label>
+          </div>
+          <div style="flex:none;display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid #e6e1d6;">
+            <span style="font-size:12px;color:#8b877e;">None = this page only</span>
+            <button onClick="{{ savePat }}" style="margin-left:auto;height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Save</button>
+            <button onClick="{{ closePat }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <!-- ============ COLUMN 2 ============ -->
+  <div style="width:{{ col2W }};flex:none;overflow:hidden;transition:width .34s cubic-bezier(.2,.8,.2,1);">
+    <div style="width:521px;height:100%;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;overflow:hidden;border-left:1px solid #d9d2c3;background:#fbf9f4;position:relative;">
+      <div style="height:46px;flex:none;background:#2b2a27;display:flex;align-items:center;justify-content:flex-end;padding:0 6px;"><button onClick="{{ toggleExpand }}" title="Close this column" style="width:34px;height:34px;border:none;background:transparent;color:#f4f1ea;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:rgba(255,255,255,.1);"><span style="font-family:'Material Symbols Outlined';font-size:21px;line-height:1;">close</span></button></div>
+
+      <!-- Collections -->
+      <div onClick="{{ tCollections }}" style="flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;background:#f3efe6;border-bottom:1px solid #e6e1d6;cursor:pointer;user-select:none;">
+        <span style="font-size:15px;font-weight:500;">Collections</span>
+        <span style="font-size:12px;color:#8b877e;">{{ colCount }}</span>
+        <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;color:#8b877e;line-height:1;">{{ chevCollections }}</span>
+      </div>
+      <div style="flex:{{ fCollections }};min-height:{{ mCollections }};overflow-y:auto;overflow-x:hidden;border-bottom:{{ bdCollections }};transition:flex-grow .3s cubic-bezier(.2,.8,.2,1),min-height .3s cubic-bezier(.2,.8,.2,1);">
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;padding:6px 10px;position:relative;">
+            <button onClick="{{ openColSort }}" title="Sort" style="display:flex;align-items:center;height:30px;padding:0 2px 0 6px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#5c5850;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:19px;line-height:1;">sort</span><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;color:#b3ada1;">arrow_drop_down</span></button>
+            <sc-if value="{{ colSortOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:38px;right:44px;z-index:5;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(30,28,24,.16);padding:6px;width:160px;animation:snPop .16s cubic-bezier(.2,.8,.2,1);">
+                <sc-for list="{{ colSortItems }}" as="m" hint-placeholder-count="2">
+                  <div onClick="{{ m.pick }}" style="display:flex;align-items:center;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:13.5px;" style-hover="background:#f3efe6;"><span>{{ m.label }}</span><span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">{{ m.check }}</span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <button onClick="{{ startAddCol }}" title="New collection" style="width:30px;height:30px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1f1e1c;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:22px;line-height:1;">add</span></button>
+          </div>
+          <sc-if value="{{ addingCol }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:0 16px 10px 28px;"><input value="{{ newCol }}" onChange="{{ setNewCol }}" onKeyDown="{{ colKey }}" placeholder="Collection name · Enter" style="width:100%;height:32px;box-sizing:border-box;padding:0 12px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;outline:none;"></div>
+          </sc-if>
+          <sc-for list="{{ collections }}" as="item" hint-placeholder-count="6">
+            <div style="border-top:1px solid #efebe2;">
+              <div onClick="{{ item.toggle }}" style="display:flex;align-items:center;gap:10px;height:42px;padding:0 16px 0 28px;cursor:pointer;" style-hover="background:#f6f2ea;">
+                <span style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.name }}</span>
+                <span style="font-size:12px;color:#8b877e;">{{ item.count }}</span>
+                <sc-if value="{{ item.isTarget }}" hint-placeholder-val="{{ false }}">
+                  <span title="Notes on this page save here" style="width:6px;height:6px;border-radius:99px;background:#c9a35a;"></span>
+                </sc-if>
+                <span style="margin-left:auto;font-size:12px;color:#b3ada1;white-space:nowrap;">{{ item.updated }}</span>
+                <span title="{{ item.visLabel }}" style="font-family:'Material Symbols Outlined';font-size:16px;line-height:1;color:#8b877e;">{{ item.visIcon }}</span>
+                <sc-if value="{{ isSigned }}" hint-placeholder-val="{{ false }}"><a href="#" onClick="{{ stop }}" title="Open in journal" style="display:flex;color:#b3ada1;" style-hover="color:#5c5850;"><span style="font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">open_in_new</span></a></sc-if>
+                <span style="font-family:'Material Symbols Outlined';font-size:20px;line-height:1;color:#8b877e;">{{ item.chev }}</span>
+              </div>
+              <div style="display:grid;grid-template-rows:{{ item.gr }};transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1);"><div style="min-height:0;overflow:hidden;">
+                <div style="padding:0 16px 10px 40px;display:flex;flex-direction:column;">
+                  <sc-for list="{{ item.entries }}" as="e" hint-placeholder-count="2">
+                    <div style="padding:8px 0;border-top:1px dashed #ece7dc;display:flex;flex-direction:column;gap:2px;">
+                      <div style="display:flex;gap:8px;font-size:12px;color:#8b877e;min-width:0;"><span style="flex:none;">{{ e.time }}</span><a href="#" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ e.url }}</a></div>
+                      <div title="{{ e.text }}" style="font-size:13.5px;line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ e.short }}</div>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ item.empty }}" hint-placeholder-val="{{ false }}"><div style="padding:6px 0;font-size:13px;color:#8b877e;">Empty</div></sc-if>
+                </div>
+              </div></div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ hasMoreCol }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;justify-content:center;padding:12px 16px 14px;border-top:1px solid #efebe2;"><button onClick="{{ moreCol }}" style="display:flex;align-items:center;justify-content:center;height:32px;padding:0 18px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;color:#5c5850;cursor:pointer;" style-hover="background:#f3efe6;">Show more</button></div>
+          </sc-if>
+          <sc-if value="{{ colJournalLink }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;justify-content:center;padding:12px 16px 14px;border-top:1px solid #efebe2;"><a href="#" style="display:flex;align-items:center;justify-content:center;height:32px;padding:0 18px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;color:#5d7fa8;cursor:pointer;">All collections in journal</a></div>
+          </sc-if>
+        </div>
+
+      <!-- Tasks -->
+      <div onClick="{{ tTasks }}" style="flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;background:#f3efe6;border-bottom:1px solid #e6e1d6;cursor:pointer;user-select:none;">
+        <span style="font-size:15px;font-weight:500;">Tasks</span>
+        <span style="font-size:12px;color:#8b877e;">{{ taskCount }}</span>
+        <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;color:#8b877e;line-height:1;">{{ chevTasks }}</span>
+      </div>
+      <div style="flex:{{ fTasks }};min-height:{{ mTasks }};overflow-y:auto;overflow-x:hidden;border-bottom:{{ bdTasks }};transition:flex-grow .3s cubic-bezier(.2,.8,.2,1),min-height .3s cubic-bezier(.2,.8,.2,1);">
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;padding:6px 10px 6px 22px;position:relative;">
+            <button onClick="{{ openProj }}" title="Edit projects" style="width:24px;height:24px;flex:none;border:none;background:transparent;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#b3ada1;margin-right:auto;" style-hover="background:#ece6d8;color:#5c5850;"><span style="font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">tune</span></button>
+            <button onClick="{{ openTaskSort }}" title="Sort" style="display:flex;align-items:center;height:30px;padding:0 2px 0 6px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#5c5850;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:19px;line-height:1;">sort</span><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;color:#b3ada1;">arrow_drop_down</span></button>
+            <sc-if value="{{ taskSortOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:38px;right:44px;z-index:5;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(30,28,24,.16);padding:6px;width:160px;animation:snPop .16s cubic-bezier(.2,.8,.2,1);">
+                <sc-for list="{{ taskSortItems }}" as="m" hint-placeholder-count="2">
+                  <div onClick="{{ m.pick }}" style="display:flex;align-items:center;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:13.5px;" style-hover="background:#f3efe6;"><span>{{ m.label }}</span><span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">{{ m.check }}</span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <button onClick="{{ toggleNt }}" title="New task" style="width:30px;height:30px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1f1e1c;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:22px;line-height:1;">add</span></button>
+          </div>
+          <sc-if value="{{ ntOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:4px 16px 14px 28px;display:flex;flex-direction:column;gap:8px;">
+              <input value="{{ ntTitle }}" onChange="{{ setNtTitle }}" onKeyDown="{{ ntKey }}" placeholder="Task title" style="height:34px;box-sizing:border-box;padding:0 10px;border:1px dashed #a9a293;border-radius:6px;background:#fff;font-size:14px;outline:none;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <select value="{{ ntProj }}" onChange="{{ setNtProj }}" style="height:30px;padding:0 8px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;cursor:pointer;">
+                  <sc-for list="{{ projNames }}" as="p" hint-placeholder-count="3"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
+                </select>
+                <span style="margin-left:auto;"></span>
+                <button onClick="{{ createTask }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;">Create</button>
+                <button onClick="{{ toggleNt }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;">Cancel</button>
+              </div>
+            </div>
+          </sc-if>
+          <sc-for list="{{ taskGroups }}" as="g" hint-placeholder-count="3">
+            <div style="border-top:1px solid #efebe2;">
+              <div onClick="{{ g.toggle }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 16px 0 28px;cursor:pointer;user-select:none;" style-hover="background:#f6f2ea;">
+                <span style="width:7px;height:7px;border-radius:99px;background:{{ g.dot }};"></span>
+                <span style="font-size:14px;">{{ g.name }}</span>
+                <span style="font-size:12px;color:#8b877e;">{{ g.count }}</span>
+                <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;line-height:1;color:#8b877e;">{{ g.chev }}</span>
+              </div>
+              <div style="display:grid;grid-template-rows:{{ g.gr }};transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1);"><div style="min-height:0;overflow:hidden;">
+                <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+                  <div>
+                    <sc-if value="{{ r.notEditing }}" hint-placeholder-val="{{ true }}">
+                      <div onClick="{{ r.edit }}" title="Edit task" style="display:grid;grid-template-columns:38px minmax(0,1fr) 72px 48px 20px;align-items:center;gap:10px;height:38px;padding:0 16px 0 40px;cursor:pointer;" style-hover="background:#f6f2ea;">
+                        <span title="{{ r.idLabel }}" style="font-size:12px;color:#b3ada1;">{{ r.num }}</span>
+                        <span style="font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.title }}</span>
+                        <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b877e;white-space:nowrap;"><span style="width:6px;height:6px;border-radius:99px;background:{{ r.color }};flex:none;"></span>{{ r.status }}</span>
+                        <span style="font-size:12px;color:#8b877e;text-align:right;">{{ r.due }}</span>
+                        <sc-if value="{{ isSigned }}" hint-placeholder-val="{{ false }}"><a href="#" onClick="{{ stop }}" title="Open in kchloe" style="display:flex;color:#b3ada1;" style-hover="color:#5c5850;"><span style="font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">open_in_new</span></a></sc-if>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ r.isEditing }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:8px 16px 12px 40px;display:flex;flex-direction:column;gap:8px;background:#f6f2ea;">
+                        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:12px;color:#b3ada1;width:38px;flex:none;">{{ r.num }}</span><input value="{{ tdTitle }}" onChange="{{ setTdTitle }}" onKeyDown="{{ tdKey }}" placeholder="Task title" style="flex:1;min-width:0;height:32px;box-sizing:border-box;padding:0 10px;border:1px dashed #a9a293;border-radius:6px;background:#fff;font-size:13.5px;outline:none;"></div>
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-left:46px;">
+                          <select value="{{ tdProj }}" onChange="{{ setTdProj }}" style="height:30px;padding:0 8px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;cursor:pointer;max-width:150px;"><sc-for list="{{ projNames }}" as="p" hint-placeholder-count="3"><option value="{{ p.id }}">{{ p.name }}</option></sc-for></select>
+                          <select value="{{ tdSt }}" onChange="{{ setTdSt }}" style="height:30px;padding:0 8px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;cursor:pointer;"><option value="active">Active</option><option value="inactive">Inactive</option><option value="draft">Draft</option></select>
+                          <input type="date" value="{{ tdDue }}" onChange="{{ setTdDue }}" title="Due" style="height:30px;box-sizing:border-box;padding:0 8px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;color:#1f1e1c;">
+                        </div>
+                        <div style="display:flex;justify-content:flex-end;gap:8px;">
+                          <button onClick="{{ saveTask }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Save</button>
+                          <button onClick="{{ cancelTask }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Cancel</button>
+                          <button onClick="{{ r.remove }}" style="height:30px;padding:0 14px;border:1px solid #b5523f;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#b5523f;" style-hover="background:#fbefeb;">Delete</button>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div></div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ hasMoreTask }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;justify-content:center;padding:12px 16px 14px;border-top:1px solid #efebe2;"><button onClick="{{ moreTask }}" style="display:flex;align-items:center;justify-content:center;height:32px;padding:0 18px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;color:#5c5850;cursor:pointer;" style-hover="background:#f3efe6;">Show more</button></div>
+          </sc-if>
+          <sc-if value="{{ taskKchloeLink }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;justify-content:center;padding:12px 16px 14px;border-top:1px solid #efebe2;"><a href="#" style="display:flex;align-items:center;justify-content:center;height:32px;padding:0 18px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;color:#5d7fa8;cursor:pointer;">All tasks in kchloe</a></div>
+          </sc-if>
+        </div>
+
+      <!-- Settings -->
+      <div onClick="{{ tSettings }}" style="flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;background:#f3efe6;border-bottom:1px solid #e6e1d6;cursor:pointer;user-select:none;">
+        <span style="font-size:15px;font-weight:500;">Settings</span>
+        <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;color:#8b877e;line-height:1;">{{ chevSettings }}</span>
+      </div>
+      <div style="flex:{{ fSettings }};min-height:{{ mSettings }};overflow-y:auto;overflow-x:hidden;border-bottom:{{ bdSettings }};transition:flex-grow .3s cubic-bezier(.2,.8,.2,1),min-height .3s cubic-bezier(.2,.8,.2,1);">
+
+          <!-- General -->
+          <div onClick="{{ tsGeneral }}" style="display:flex;align-items:center;height:42px;padding:0 16px 0 28px;cursor:pointer;user-select:none;" style-hover="background:#f6f2ea;">
+            <span style="font-size:14px;">General</span>
+            <button onClick="{{ openLim }}" title="Display limits" style="width:24px;height:24px;flex:none;border:none;background:transparent;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#b3ada1;margin-left:6px;" style-hover="background:#ece6d8;color:#5c5850;"><span style="font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">tune</span></button>
+            <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;line-height:1;color:#8b877e;">{{ chevGeneral }}</span>
+          </div>
+          <div style="display:grid;grid-template-rows:{{ rGeneral }};transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1);"><div style="min-height:0;overflow:hidden;">
+            <div style="padding:0 16px 10px 40px;">
+              <div style="display:flex;align-items:center;height:42px;"><span style="font-size:13.5px;color:#5c5850;">Language</span><select value="{{ lang }}" onChange="{{ setLang }}" style="margin-left:auto;height:30px;padding:0 8px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;cursor:pointer;"><option>English</option><option>한국어</option><option>日本語</option></select></div>
+              <div style="display:flex;align-items:center;height:42px;border-top:1px solid #efebe2;"><span style="font-size:13.5px;color:#5c5850;">Time zone</span><select value="{{ tz }}" onChange="{{ setTz }}" style="margin-left:auto;height:30px;padding:0 8px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;cursor:pointer;"><option>Asia/Seoul</option><option>Asia/Tokyo</option><option>Europe/London</option><option>America/New_York</option></select></div>
+              <div style="display:flex;align-items:center;height:42px;border-top:1px solid #efebe2;"><span style="font-size:13.5px;color:#5c5850;">Theme</span><select value="{{ theme }}" onChange="{{ setTheme }}" style="margin-left:auto;height:30px;padding:0 8px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;cursor:pointer;"><option>System</option><option>Light</option><option>Dark</option></select></div>
+            </div>
+          </div></div>
+
+          <!-- Account -->
+          <div onClick="{{ tsAccount }}" style="display:flex;align-items:center;gap:8px;height:42px;padding:0 16px 0 28px;border-top:1px solid #efebe2;cursor:pointer;user-select:none;" style-hover="background:#f6f2ea;">
+            <span style="font-size:14px;">Account</span>
+            <span style="font-size:12px;color:#8b877e;">{{ accountState }}</span>
+            <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;line-height:1;color:#8b877e;">{{ chevAccount }}</span>
+          </div>
+          <div style="display:grid;grid-template-rows:{{ rAccount }};transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1);"><div style="min-height:0;overflow:hidden;">
+            <div style="padding:0 16px 14px 40px;">
+              <sc-if value="{{ isLocal }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:12px;height:42px;">
+                  <span style="font-size:13.5px;color:#5c5850;">This device</span>
+                  <div style="flex:1;height:4px;border-radius:99px;background:#e6e1d6;overflow:hidden;"><div style="width:24%;height:100%;background:#c9a35a;"></div></div>
+                  <span style="font-size:12.5px;color:#8b877e;white-space:nowrap;">1.2 / 5 MB</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid #efebe2;max-width:300px;">
+                  <input value="{{ email }}" onChange="{{ setEmail }}" placeholder="Email" style="height:34px;box-sizing:border-box;padding:0 12px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13.5px;outline:none;" style-focus="border-color:#a9a293;">
+                  <input type="password" value="{{ pw }}" onChange="{{ setPw }}" placeholder="Password" style="height:34px;box-sizing:border-box;padding:0 12px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13.5px;outline:none;" style-focus="border-color:#a9a293;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <button onClick="{{ login }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">{{ loginLabel }}</button>
+                    <button onClick="{{ login }}" style="height:30px;padding:0 14px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Google</button>
+                    <span onClick="{{ toggleAuth }}" style="margin-left:auto;font-size:12.5px;color:#5d7fa8;cursor:pointer;">{{ authSwitch }}</span>
+                  </div>
+                  <span style="font-size:12px;color:#8b877e;">{{ syncHint }}</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isSigned }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;height:42px;"><span style="font-size:13.5px;color:#5c5850;">Email</span><span style="margin-left:auto;font-size:13px;">jung@kewtea.com</span></div>
+                <div style="display:flex;align-items:center;height:42px;border-top:1px solid #efebe2;"><span style="font-size:13.5px;color:#5c5850;">Sync</span><span style="margin-left:auto;font-size:13px;display:flex;align-items:center;gap:6px;"><span style="width:6px;height:6px;border-radius:99px;background:#8fb08a;"></span>15:24</span></div>
+                <div style="display:flex;align-items:center;height:42px;border-top:1px solid #efebe2;"><span style="font-size:13.5px;color:#5c5850;">Offline cache</span><span style="margin-left:auto;font-size:13px;color:#8b877e;">0.4 MB</span></div>
+                <div style="display:flex;align-items:center;height:42px;border-top:1px solid #efebe2;"><span onClick="{{ signOut }}" style="margin-left:auto;font-size:13px;color:#b5523f;cursor:pointer;">Sign out</span></div>
+              </sc-if>
+            </div>
+          </div></div>
+
+          <!-- Tags -->
+          <div onClick="{{ tsTags }}" style="display:flex;align-items:center;gap:8px;height:42px;padding:0 16px 0 28px;border-top:1px solid #efebe2;cursor:pointer;user-select:none;" style-hover="background:#f6f2ea;">
+            <span style="font-size:14px;">Tags</span>
+            <span style="font-size:12px;color:#8b877e;">{{ tagCount }}</span>
+            <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;line-height:1;color:#8b877e;">{{ chevTags }}</span>
+          </div>
+          <div style="display:grid;grid-template-rows:{{ rTags }};transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1);"><div style="min-height:0;overflow:hidden;">
+            <div style="padding:0 16px 10px 40px;">
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;height:36px;">
+                <select value="{{ tagSort }}" onChange="{{ setTagSort }}" style="border:none;background:transparent;font-size:12.5px;color:#8b877e;outline:none;cursor:pointer;"><option value="created">By created at</option><option value="name">By name</option><option value="count">By count</option></select>
+                <button onClick="{{ startAddTag }}" title="New tag" style="width:28px;height:28px;border:none;background:transparent;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#5c5850;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:20px;line-height:1;">add</span></button>
+              </div>
+              <sc-if value="{{ addingTag }}" hint-placeholder-val="{{ false }}">
+                <input value="{{ newTag }}" onChange="{{ setNewTag }}" onKeyDown="{{ newTagKey }}" placeholder="New tag · Enter" style="width:100%;height:32px;box-sizing:border-box;margin-bottom:6px;padding:0 12px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;">
+              </sc-if>
+              <sc-for list="{{ tags }}" as="item" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:8px;height:40px;border-top:1px solid #efebe2;position:relative;">
+                  <span style="font-size:13.5px;">{{ item.name }}</span>
+                  <span style="font-size:12px;color:#8b877e;">{{ item.count }}</span>
+                  <button onClick="{{ item.openMenu }}" title="{{ item.visLabel }}" style="margin-left:auto;display:flex;align-items:center;height:28px;padding:0 2px 0 6px;border:1px solid {{ item.menuBd }};border-radius:6px;background:transparent;cursor:pointer;color:#5c5850;"><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;">{{ item.visIcon }}</span><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;color:#b3ada1;">arrow_drop_down</span></button>
+                  <sc-if value="{{ item.menuOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;top:36px;right:0;z-index:5;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(30,28,24,.16);padding:6px;width:160px;">
+                      <sc-for list="{{ item.menuItems }}" as="m" hint-placeholder-count="4">
+                        <div onClick="{{ m.pick }}" style="display:flex;align-items:center;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:13.5px;" style-hover="background:#f3efe6;"><span>{{ m.label }}</span><span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:16px;line-height:1;">{{ m.check }}</span></div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div></div>
+
+          <!-- User groups -->
+          <div onClick="{{ tsGroups }}" style="display:flex;align-items:center;gap:8px;height:42px;padding:0 16px 0 28px;border-top:1px solid #efebe2;cursor:pointer;user-select:none;" style-hover="background:#f6f2ea;">
+            <span style="font-size:14px;">User groups</span>
+            <span style="font-size:12px;color:#8b877e;">{{ slotLabel }}</span>
+            <span style="margin-left:auto;font-family:'Material Symbols Outlined';font-size:20px;line-height:1;color:#8b877e;">{{ chevGroups }}</span>
+          </div>
+          <div style="display:grid;grid-template-rows:{{ rGroups }};transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1);"><div style="min-height:0;overflow:hidden;">
+            <div style="padding:0 16px 10px 40px;">
+              <div style="display:flex;align-items:center;justify-content:flex-end;height:36px;">
+                <button onClick="{{ addGroup }}" title="{{ addGroupTitle }}" style="width:28px;height:28px;border:none;background:transparent;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:{{ addGroupColor }};" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:20px;line-height:1;">add</span></button>
+              </div>
+              <sc-for list="{{ groups }}" as="item" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:10px;height:44px;border-top:1px solid #efebe2;">
+                  <span style="font-size:13.5px;">{{ item.name }}</span>
+                  <span style="font-size:12px;color:#8b877e;">{{ item.count }}*</span>
+                  <span style="margin-left:auto;font-size:12.5px;color:#8b877e;">{{ item.handle }}</span>
+                  <input type="checkbox" checked="{{ item.on }}" onChange="{{ item.toggle }}" title="Read access" style="width:15px;height:15px;accent-color:#2b2a27;margin:0;cursor:pointer;">
+                  <select value="{{ item.status }}" onChange="{{ item.setStatus }}" style="height:30px;padding:0 8px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;cursor:pointer;"><option>active</option><option>inactive</option><option>archived</option></select>
+                </div>
+              </sc-for>
+            </div>
+          </div></div>
+        </div>
+
+      <sc-if value="{{ limModal }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closeLim }}" style="position:absolute;inset:0;z-index:20;background:rgba(31,30,28,.28);display:flex;align-items:flex-start;justify-content:center;padding-top:110px;animation:snFade .18s ease;">
+          <div onClick="{{ stop }}" style="width:340px;background:#fbf9f4;border-radius:12px;box-shadow:0 20px 50px rgba(30,28,24,.28);display:flex;flex-direction:column;overflow:hidden;animation:snPop .22s cubic-bezier(.2,.8,.2,1);">
+            <div style="flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 8px 0 16px;border-bottom:1px solid #e6e1d6;">
+              <span style="font-size:15px;font-weight:500;">Display limits</span>
+              <button onClick="{{ closeLim }}" title="Close" style="width:30px;height:30px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#5c5850;margin-left:auto;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:19px;line-height:1;">close</span></button>
+            </div>
+            <div style="padding:4px 16px 8px;">
+              <sc-for list="{{ limRows }}" as="l" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:8px;height:46px;border-bottom:1px solid #efebe2;">
+                  <span style="font-size:13.5px;color:#5c5850;">{{ l.label }}</span>
+                  <input type="number" min="1" max="50" value="{{ l.value }}" onChange="{{ l.set }}" style="margin-left:auto;width:64px;height:30px;box-sizing:border-box;padding:0 8px;border:1px solid #e0dacd;border-radius:6px;background:#fff;font-size:13px;outline:none;text-align:right;">
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:none;display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid #e6e1d6;">
+              <span style="font-size:12px;color:#8b877e;">Show more loads the same amount.</span>
+              <button onClick="{{ saveLim }}" style="margin-left:auto;height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Save</button>
+              <button onClick="{{ closeLim }}" style="height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ projModal }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closeProj }}" style="position:absolute;inset:0;z-index:20;background:rgba(31,30,28,.28);display:flex;align-items:flex-start;justify-content:center;padding-top:110px;animation:snFade .18s ease;">
+          <div onClick="{{ stop }}" style="width:380px;max-height:70%;background:#fbf9f4;border-radius:12px;box-shadow:0 20px 50px rgba(30,28,24,.28);display:flex;flex-direction:column;overflow:hidden;animation:snPop .22s cubic-bezier(.2,.8,.2,1);">
+            <div style="flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 8px 0 16px;border-bottom:1px solid #e6e1d6;">
+              <span style="font-size:15px;font-weight:500;">Projects</span>
+              <span style="font-size:12px;color:#8b877e;">{{ projCount }}</span>
+              <button onClick="{{ closeProj }}" title="Close" style="width:30px;height:30px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#5c5850;margin-left:auto;" style-hover="background:#ece6d8;"><span style="font-family:'Material Symbols Outlined';font-size:19px;line-height:1;">close</span></button>
+            </div>
+            <div style="flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:4px 16px 12px;">
+              <sc-for list="{{ projRows }}" as="p" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:8px;height:44px;border-bottom:1px solid #efebe2;">
+                  <span onClick="{{ p.cycle }}" title="Change color" style="width:12px;height:12px;flex:none;border-radius:99px;background:{{ p.color }};cursor:pointer;"></span>
+                  <input value="{{ p.name }}" onChange="{{ p.rename }}" style="flex:1;min-width:0;height:30px;box-sizing:border-box;padding:0 8px;border:1px solid transparent;border-radius:6px;background:transparent;font-size:13.5px;outline:none;" style-hover="border-color:#e0dacd;" style-focus="border-color:#a9a293;background:#fff;">
+                  <span style="font-size:12px;color:#8b877e;">{{ p.count }}</span>
+                  <button onClick="{{ p.remove }}" title="Delete" style="width:28px;height:28px;flex:none;border:none;background:transparent;border-radius:6px;cursor:pointer;color:#b5523f;display:flex;align-items:center;justify-content:center;" style-hover="background:#fbefeb;"><span style="font-family:'Material Symbols Outlined';font-size:17px;line-height:1;">delete</span></button>
+                </div>
+              </sc-for>
+              <input value="{{ newProj }}" onChange="{{ setNewProj }}" onKeyDown="{{ newProjKey }}" placeholder="New project · Enter" style="width:100%;height:32px;box-sizing:border-box;margin-top:10px;padding:0 12px;border:1px solid #e0dacd;border-radius:99px;background:#fff;font-size:13px;outline:none;">
+            </div>
+            <div style="flex:none;display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid #e6e1d6;">
+              <span style="font-size:12px;color:#8b877e;">Tasks of a deleted project move to Uncategorized.</span>
+              <button onClick="{{ closeProj }}" style="margin-left:auto;height:30px;padding:0 14px;border:1px solid #1f1e1c;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;color:#1f1e1c;" style-hover="background:#f3efe6;">Done</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;initialExpanded&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;initialSignedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;initialOpen&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;about,notes,history,collections,tasks&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;initialSettings&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;general&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;initialEditing&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+const VIS={private:['lock','Private'],abs:['group','@abs'],home:['group','@home'],public:['public','Public']};
+const VK=['private','abs','home','public'];
+const HI={read:'menu_book',link:'link',form:'keyboard',copy:'ink_highlighter'};
+const FL=[['all','filter_list','All'],['read','menu_book','Read'],['link','link','Links'],['form','keyboard','Inputs'],['copy','ink_highlighter','Highlights']];
+const ST={active:['Active','#8fb08a'],inactive:['Inactive','#b3ada1'],draft:['Draft','#d2a85a']};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtDue=d=>{if(!d)return '—';const [y,m,dd]=d.split('-');return MON[+m-1]+' '+dd;};
+const words=(t,n)=>{const w=(t||'').split(/\s+/);return w.length>n?w.slice(0,n).join(' ')+'…':t;};
+const PALETTE=['#c9a35a','#7fa3d6','#8fb08a','#b49ac9','#cf7d6e','#8b877e'];
+const T=(seg,children,n)=>({seg,children,n});
+const TREE=(function fix(n,p){n.path=p?p+'/'+n.seg:n.seg;(n.children||[]).forEach(c=>fix(c,n.path));return n;})(T('docs.tablekit.dev',[T('script',[T('reference',[T('sheet'),T('range',null,1),T('spreadsheet')]),T('guides',[T('best-practices',null,2),T('triggers',null,1)]),T('quotas',null,1)]),T('blog',[T('2026-release-notes',null,2),T('migrating-from-v1',null,1)])]));
+const CUR='docs.tablekit.dev/script/reference/sheet';
+const parse=s=>Object.fromEntries((s||'').split(',').map(x=>x.trim()).filter(Boolean).map(k=>[k,true]));
+const H=(id,kind,time,text,sub)=>({id,kind,time,text,sub});
+let uid=500;
+const stop=e=>e&&e.stopPropagation&&e.stopPropagation();
+
+class Component extends DCLogic {
+  state = {
+    expanded:null, open:null, setOpen:null, signedIn:null, editing:undefined,
+    draft:null, draftCol:null, draftKws:null, kwInput:'', menu:null, noteSort:'time',
+    notes:[
+      {id:'n1',time:'Today at 15:11',edited:'',text:'appendRow() is the safest way to add a log line — no range math, no off-by-one.',vis:'private',col:'TableKit notes',kws:['tablekit'],pos:3},
+      {id:'n2',time:'Today at 14:52',edited:'(edited 14:58)',text:'Quota check: 20k calls/day on personal accounts. Ask Jamie whether the team tier is different.',vis:'abs',col:'TableKit notes',kws:['quota','ask-jamie'],pos:1},
+      {id:'n3',time:'Today at 14:40',edited:'',text:'Read once with getValues(), write once with setValues() — roughly 10× faster than looping over cells.',vis:'public',col:'Automation recipes',kws:[],pos:2}
+    ],
+    about:{title:'Sheet · TableKit Script reference',url:'docs.tablekit.dev/script/reference/sheet',tags:['tablekit','automation'],patterns:['docs.tablekit.dev/script/reference/*','docs.tablekit.dev/script/guides/*'],ignoreQuery:true},
+    aboutEdit:false, aDraft:null, tagInput:'', patInput:'',
+    treeOpen:{}, patModal:false, patDraft:null,
+    history:[
+      H('h1','copy','15:24','appendRow(rowContents) — appends a row to the bottom of the current data region.','Copied · Methods'),
+      H('h2','read','15:22','Read to 64% · Methods','9 paragraphs · 2m 10s'),
+      H('h3','form','15:21','Searched “batch update”','In-page filter'),
+      H('h4','link','15:19','Opened “Best practices”','docs.tablekit.dev/script/guides/best-practices'),
+      H('h5','read','15:17','getRange(a1Notation) returns the range as specified in A1 notation.','31s · Range'),
+      H('h6','read','15:15','4m 10s on Range','6 paragraphs'),
+      H('h7','copy','15:12','Batch operations: read once with getValues(), write once with setValues().','Copied · Best practices'),
+      H('h8','read','15:10','Read to 38% · Range','6 paragraphs'),
+      H('h9','link','15:08','Opened “Quotas”','docs.tablekit.dev/script/quotas'),
+      H('h10','read','15:05','clearContents() clears values but keeps formatting.','22s · Methods'),
+      H('h11','form','15:03','Typed in feedback form','“The insertRows example is outdated”'),
+      H('h12','read','15:01','Read to 12% · Overview','3 paragraphs'),
+      H('h13','read','14:58','2m 40s on Overview',''),
+      H('h14','copy','14:55','A sheet is a single tab inside a spreadsheet file.','Copied · Overview'),
+      H('h15','link','14:54','Opened “Spreadsheet class”','docs.tablekit.dev/script/reference/spreadsheet'),
+      H('h16','read','14:53','Read to 4% · Overview',''),
+      H('h17','read','14:52','Methods are grouped by what they read or change.','12s · Overview'),
+      H('h18','link','14:50','Opened from search · “tablekit append row”','')
+    ],
+    histShown:10, histFilter:'all', selHist:null, editHist:null, histDraft:'',
+    collections:[
+      {id:'c1',name:'TableKit notes',count:12,updated:'15:11',vis:'private',entries:[
+        {time:'15:11',url:'docs.tablekit.dev/script/reference/sheet',text:'appendRow() is the safest way to add a log line — no range math, no off-by-one.'},
+        {time:'14:52',url:'docs.tablekit.dev/script/reference/sheet',text:'Quota check: 20k calls/day on personal accounts.'},
+        {time:'Yesterday',url:'docs.tablekit.dev/script/guides/triggers',text:'Time-driven triggers run in the script owner’s time zone, not the viewer’s.'}]},
+      {id:'c2',name:'Automation recipes',count:8,updated:'14:40',vis:'public',entries:[
+        {time:'14:40',url:'docs.tablekit.dev/script/reference/sheet',text:'Read once with getValues(), write once with setValues().'},
+        {time:'Sep 28',url:'blog.flowworks.io/cron-patterns',text:'Weekly digest: trigger Mon 08:00, skip holidays from a lookup sheet.'}]},
+      {id:'c3',name:'Research on microscopy',count:3,updated:'Sep 30',vis:'abs',entries:[{time:'Sep 30',url:'bioimaging.org/lattice-light-sheet',text:'Supplement movies: autofocus, AO, deconvolution.'}]},
+      {id:'c4',name:'Reading list 2026',count:18,updated:'Sep 29',vis:'private',entries:[{time:'Sep 29',url:'longform.press/slow-reading',text:'On reading slowly, and why margins matter.'}]},
+      {id:'c5',name:'Quotes',count:41,updated:'Sep 27',vis:'public',entries:[{time:'Sep 27',url:'',text:'“You can’t go back and change the beginning…” — C.S. Lewis'}]},
+      {id:'c6',name:'Seoul cafés',count:7,updated:'Sep 24',vis:'home',entries:[]},
+      {id:'c7',name:'Design references',count:25,updated:'Sep 22',vis:'private',entries:[]},
+      {id:'c8',name:'Pricing research',count:6,updated:'Sep 19',vis:'abs',entries:[]},
+      {id:'c9',name:'Trip: Kyoto',count:9,updated:'Sep 12',vis:'home',entries:[]},
+      {id:'c10',name:'Victorian periodicals',count:4,updated:'Aug 30',vis:'private',entries:[]},
+      {id:'c11',name:'Unique bookstores to visit',count:1,updated:'Aug 21',vis:'public',entries:[]},
+      {id:'c12',name:'Uncategorized',count:14,updated:'Aug 02',vis:'private',entries:[]}
+    ],
+    colShown:10, colOpen:{c1:true}, addingCol:false, newCol:'', colSort:'recent',
+    projects:[{id:'p1',name:'Sidenote · v2',color:'#c9a35a'},{id:'p2',name:'Atlas · Pricing',color:'#7fa3d6'},{id:'p3',name:'Atlas · Launch',color:'#8fb08a'},{id:'p4',name:'Research',color:'#b49ac9'}],
+    tasks:[
+      {lid:15,id:2231,title:'Scrap rows → journal entry mapping',proj:'p1',st:'draft',due:'2026-10-04'},
+      {lid:14,id:2229,title:'URL pattern matching rules',proj:'p1',st:'active',due:'2026-10-06'},
+      {lid:13,id:2233,title:'Reply to Jamie about quota tier',proj:'',st:'active',due:'2026-10-03'},
+      {lid:12,id:2110,title:'Annual / monthly toggle',proj:'p2',st:'active',due:'2026-10-07'},
+      {lid:11,id:2104,title:'Pricing hero — headline test',proj:'p2',st:'draft',due:'2026-10-03'},
+      {lid:10,id:2226,title:'Storage quota guard',proj:'p1',st:'inactive',due:'2026-10-05'},
+      {lid:9,id:2208,title:'Press kit assets',proj:'p3',st:'active',due:'2026-10-09'},
+      {lid:8,id:2232,title:'Try appendRow in the log sheet',proj:'',st:'draft',due:''},
+      {lid:7,id:2190,title:'Collect light-sheet references',proj:'p4',st:'active',due:'2026-10-12'},
+      {lid:6,id:2202,title:'Launch email sequence',proj:'p3',st:'inactive',due:'2026-09-30'},
+      {lid:5,id:2098,title:'Compare plan limits',proj:'p2',st:'inactive',due:'2026-09-28'},
+      {lid:4,id:2221,title:'Sync conflict copy',proj:'p1',st:'active',due:'2026-10-10'},
+      {lid:3,id:2187,title:'Summarize lab notes',proj:'p4',st:'inactive',due:'2026-09-26'},
+      {lid:2,id:2195,title:'Partner logos',proj:'p3',st:'active',due:'2026-10-14'},
+      {lid:1,id:2090,title:'FAQ rewrite',proj:'p2',st:'active',due:'2026-10-15'}
+    ],
+    editTask:null, td:null, limits:{cols:10,notes:3,tasks:10}, limModal:false, limDraft:null,
+    taskShown:10, projOpen:{}, ntOpen:false, ntTitle:'', ntProj:'p1', taskSort:'recent', projModal:false, newProj:'',
+    lang:'English', tz:'Asia/Seoul', theme:'System',
+    authTab:'login', email:'', pw:'', syncing:false,
+    tags:[{name:'sw',count:1,vis:'abs'},{name:'tablekit',count:4,vis:'private'},{name:'automation',count:3,vis:'public'},{name:'quota',count:1,vis:'private'},{name:'reading',count:12,vis:'home'}],
+    tagSort:'created', addingTag:false, newTag:'',
+    groups:[{name:'home',count:1,handle:'@home',on:true,status:'active'},{name:'abs',count:1,handle:'@abs',on:true,status:'active'}]
+  };
+
+  get open(){return this.state.open ?? parse(this.props.initialOpen ?? 'about,notes,history,collections,tasks');}
+  get setOpen(){return this.state.setOpen ?? parse(this.props.initialSettings ?? 'general');}
+  get editing(){return this.state.editing!==undefined ? this.state.editing : (this.props.initialEditing||null);}
+  get expanded(){return this.state.expanded ?? !!this.props.initialExpanded;}
+  get signedIn(){return this.state.signedIn ?? !!this.props.initialSignedIn;}
+
+  tog(k){const o=this.open;this.setState({open:{...o,[k]:!o[k]}});}
+  togS(k){const o=this.setOpen;this.setState({setOpen:{...o,[k]:!o[k]}});}
+  draftOf(n){return {text:this.state.draft ?? n?.text ?? '',col:this.state.draftCol ?? n?.col ?? '',kws:this.state.draftKws ?? n?.kws ?? []};}
+  startEdit(n){this.setState({editing:n.id,draft:n.text,draftCol:n.col,draftKws:[...n.kws],kwInput:'',menu:null});}
+  endEdit(extra){this.setState({editing:null,draft:null,draftCol:null,draftKws:null,kwInput:'',...extra});}
+  saveNote(n){const d=this.draftOf(n);const notes=d.text.trim()?this.state.notes.map(x=>x.id===n.id?{...x,text:d.text,col:d.col,kws:d.kws,edited:x.isNew?'':'(edited just now)',isNew:false}:x):this.state.notes.filter(x=>x.id!==n.id);this.endEdit({notes});}
+  cancelNote(n){this.endEdit(n.isNew?{notes:this.state.notes.filter(x=>x.id!==n.id)}:{});}
+  addNote(){const id='n'+(++uid);const n={id,time:'Just now',edited:'',text:'',vis:'private',col:'TableKit notes',kws:[],pos:0,isNew:true};this.setState({notes:[n,...this.state.notes],editing:id,draft:'',draftCol:n.col,draftKws:[],kwInput:'',open:{...this.open,notes:true}});}
+  menuItems(kind,id,cur){return VK.map(v=>({icon:VIS[v][0],label:VIS[v][1],check:v===cur?'check':'',pick:e=>{stop(e);this.pickVis(kind,id,v);}}));}
+  pickVis(kind,id,v){if(kind==='note')this.setState({notes:this.state.notes.map(n=>n.id===id?{...n,vis:v}:n),menu:null});else this.setState({tags:this.state.tags.map(t=>t.name===id?{...t,vis:v}:t),menu:null});}
+  isMenu(kind,id){const m=this.state.menu;return !!(m&&m.kind===kind&&m.id===id);}
+  toggleMenu(kind,id){this.setState({menu:this.isMenu(kind,id)?null:{kind,id}});}
+  componentDidMount(){this._out=()=>{if(this.state.menu)this.setState({menu:null});};this._key=e=>{if(e.key!=='Escape')return;if(this.state.limModal)this.setState({limModal:false,limDraft:null});if(this.state.projModal)this.closeProj();if(this.state.patModal)this.setState({patModal:false,patDraft:null,patInput:''});};document.addEventListener('click',this._out);document.addEventListener('keydown',this._key);}
+  componentWillUnmount(){document.removeEventListener('click',this._out);document.removeEventListener('keydown',this._key);}
+  closeProj(){this.setState({projModal:false,newProj:'',projects:this.state.projects.map(p=>({...p,name:p.name.trim()||'Untitled'}))});}
+  login(){if(this.state.syncing)return;this.setState({syncing:true});setTimeout(()=>this.setState({syncing:false,signedIn:true}),1300);}
+
+  renderVals(){
+    const s=this.state, o=this.open, so=this.setOpen, ed=this.editing, exp=this.expanded, signed=this.signedIn;
+    const chev=b=>b?'expand_less':'expand_more';
+    const colNames=s.collections.map(c=>({name:c.name}));
+    const sortedNotes=[...s.notes].sort((a,b)=>s.noteSort==='page'?(a.pos-b.pos):0);
+    const notes=sortedNotes.map(n=>{
+      const isE=ed===n.id, d=isE?this.draftOf(n):null;
+      return {...n,visIcon:VIS[n.vis][0],visLabel:VIS[n.vis][1],isEditing:isE,notEditing:!isE,
+        kws:n.kws.map(k=>({name:k})),
+        menuOpen:this.isMenu('note',n.id),openMenu:e=>{stop(e);this.toggleMenu('note',n.id);},menuItems:this.menuItems('note',n.id,n.vis),
+        startEdit:()=>this.startEdit(n),
+        draft:d?d.text:'',onDraft:e=>this.setState({draft:e.target.value}),
+        draftCol:d?d.col:'',onCol:e=>this.setState({draftCol:e.target.value}),
+        draftKws:d?d.kws.map(k=>({name:k,remove:()=>this.setState({draftKws:d.kws.filter(x=>x!==k)})})):[],
+        kwInput:s.kwInput,onKwInput:e=>this.setState({kwInput:e.target.value}),
+        onKwKey:e=>{if(e.key==='Enter'){e.preventDefault();const v=s.kwInput.trim().replace(/^#/,'');if(v&&!d.kws.includes(v))this.setState({draftKws:[...d.kws,v],kwInput:''});else this.setState({kwInput:''});}},
+        save:()=>this.saveNote(n),cancel:()=>this.cancelNote(n),remove:()=>this.endEdit({notes:s.notes.filter(x=>x.id!==n.id)})};
+    });
+    const hAll=s.history;
+    const match=(h,f)=>f==='all'||h.kind===f;
+    const hFilt=hAll.filter(h=>match(h,s.histFilter));
+    const history=hFilt.slice(0,s.histShown).map(h=>{
+      const sel=s.selHist===h.id, isE=s.editHist===h.id;
+      return {...h,icon:HI[h.kind],isEditing:isE,notEditing:!isE,showActions:sel&&!isE,
+        rowBg:isE||sel?'#f4efe3':'transparent',
+        select:()=>{if(!isE)this.setState({selHist:sel?null:h.id});},
+        edit:e=>{stop(e);this.setState({editHist:h.id,histDraft:h.text});},
+        remove:e=>{stop(e);this.setState({history:s.history.filter(x=>x.id!==h.id),selHist:null});}};
+    });
+    const fCur=FL.find(f=>f[0]===s.histFilter);
+    const ab=s.about, ad=s.aDraft||ab;
+    const setAD=p=>this.setState({aDraft:{...ad,...p}});
+    const treeRows=[];
+    const cnt=n=>n.children?n.children.reduce((a,c)=>a+cnt(c),0):(n.path===CUR?s.notes.length:(n.n||0));
+    const walk=(n,d)=>{const has=!!n.children, op=has&&!!s.treeOpen[n.path], isCur=n.path===CUR, c=cnt(n);
+      treeRows.push({label:d===0||!has?n.seg:n.seg+'/',href:'https://'+n.path,count:c||'',pad:(4+d*16)+'px',chev:has?(op?'expand_more':'chevron_right'):'',bg:isCur?'#ece6d8':'transparent',color:isCur?'#1f1e1c':'#3d3b37',
+        toggle:e=>{stop(e);if(has)this.setState({treeOpen:{...s.treeOpen,[n.path]:!op}});}});
+      if(op)n.children.forEach(ch=>walk(ch,d+1));};
+    walk(TREE,0);
+    const sortMenu=(cur,key)=>[['recent','By recency'],['size','By size']].map(([k,l])=>({label:l,check:cur===k?'check':'',pick:()=>this.setState({[key]:k,menu:null})}));
+    const sec={};
+    [['notes','Notes'],['history','History'],['collections','Collections'],['tasks','Tasks'],['settings','Settings']].forEach(([k,K])=>{const on=!!o[k];sec['f'+K]=on?'1 1 0px':'0 1 0px';sec['m'+K]=on?'96px':'0px';sec['bd'+K]=on?'1px solid #e6e1d6':'0px solid transparent';});
+    [['general','General'],['account','Account'],['tags','Tags'],['groups','Groups']].forEach(([k,K])=>{sec['r'+K]=so[k]?'1fr':'0fr';});
+    const curTarget=ed?this.draftOf(s.notes.find(n=>n.id===ed)).col:'TableKit notes';
+    const colsSorted=s.colSort==='size'?[...s.collections].sort((a,b)=>b.count-a.count):s.collections;
+    const colsShown=colsSorted.slice(0,s.colShown).map(c=>{const op=!!s.colOpen[c.id];return {...c,gr:op?'1fr':'0fr',visIcon:VIS[c.vis][0],visLabel:VIS[c.vis][1],isOpen:op,chev:chev(op),entries:c.entries.slice(0,s.limits.notes).map(e=>({...e,short:words(e.text,20)})),empty:!c.entries.length,isTarget:c.name===curTarget,toggle:()=>this.setState({colOpen:{...s.colOpen,[c.id]:!op}})};});
+    const pById=Object.fromEntries(s.projects.map(p=>[p.id,p]));
+    const gmap=[];
+    s.tasks.slice(0,s.taskShown).forEach((t,i)=>{const key=pById[t.proj]?t.proj:'';let g=gmap.find(x=>x.key===key);if(!g){g={key,name:key?pById[key].name:'Uncategorized',dot:key?pById[key].color:'#d6d0c3',first:i,rows:[]};gmap.push(g);}const isE=s.editTask===t.lid;g.rows.push({num:signed?(t.id??'—'):t.lid,idLabel:signed?'kchloe #'+(t.id??'pending'):'Local #'+t.lid+' · kchloe number assigned on sync',title:t.title,status:ST[t.st][0],color:ST[t.st][1],due:fmtDue(t.due),isEditing:isE,notEditing:!isE,
+      edit:()=>this.setState({editTask:t.lid,td:{title:t.title,proj:t.proj,st:t.st,due:t.due}}),
+      remove:()=>this.setState({tasks:s.tasks.filter(x=>x.lid!==t.lid),editTask:null,td:null})});});
+    gmap.sort((a,b)=>!a.key?1:!b.key?-1:s.taskSort==='size'?b.rows.length-a.rows.length:a.first-b.first);
+    const taskGroups=gmap.map(g=>{const op=s.projOpen[g.key]!==false;return {...g,count:g.rows.length,isOpen:op,gr:op?'1fr':'0fr',chev:chev(op),toggle:()=>this.setState({projOpen:{...s.projOpen,[g.key]:!op}})};});
+    const projRows=s.projects.map(p=>({...p,count:s.tasks.filter(t=>t.proj===p.id).length,
+      rename:e=>this.setState({projects:s.projects.map(x=>x.id===p.id?{...x,name:e.target.value}:x)}),
+      cycle:()=>this.setState({projects:s.projects.map(x=>x.id===p.id?{...x,color:PALETTE[(PALETTE.indexOf(x.color)+1)%PALETTE.length]}:x)}),
+      remove:()=>this.setState({projects:s.projects.filter(x=>x.id!==p.id),tasks:s.tasks.map(t=>t.proj===p.id?{...t,proj:''}:t),ntProj:s.ntProj===p.id?'':s.ntProj})}));
+    const tagsSorted=[...s.tags].sort((a,b)=>s.tagSort==='name'?a.name.localeCompare(b.name):s.tagSort==='count'?b.count-a.count:0);
+    const tags=tagsSorted.map(t=>{const mo=this.isMenu('tag',t.name);return {...t,visIcon:VIS[t.vis][0],visLabel:VIS[t.vis][1],menuOpen:mo,menuBd:mo?'#8b877e':'transparent',openMenu:e=>{stop(e);this.toggleMenu('tag',t.name);},menuItems:this.menuItems('tag',t.name,t.vis)};});
+    const groups=s.groups.map((g,i)=>({...g,toggle:()=>this.setState({groups:s.groups.map((x,j)=>j===i?{...x,on:!x.on}:x)}),setStatus:e=>this.setState({groups:s.groups.map((x,j)=>j===i?{...x,status:e.target.value}:x)})}));
+    const td=s.td||{};const setTd=p=>this.setState({td:{...td,...p}});
+    const saveTask=()=>{if(!td.title||!td.title.trim())return;this.setState({tasks:s.tasks.map(t=>t.lid===s.editTask?{...t,...td,title:td.title.trim()}:t),editTask:null,td:null});};
+    const lim=s.limDraft||s.limits;
+    const newTask=()=>{if(!s.ntTitle.trim())return;const lid=Math.max(0,...s.tasks.map(t=>t.lid))+1;const id=signed?Math.max(...s.tasks.map(t=>t.id||0))+1:null;this.setState({tasks:[{lid,id,title:s.ntTitle.trim(),proj:s.ntProj,st:'draft',due:''},...s.tasks],ntOpen:false,ntTitle:'',projOpen:{...s.projOpen,[s.ntProj]:true}});};
+    return {
+      stop,...sec,treeRows,
+      tdTitle:td.title||'',setTdTitle:e=>setTd({title:e.target.value}),tdProj:td.proj??'',setTdProj:e=>setTd({proj:e.target.value}),
+      tdSt:td.st||'draft',setTdSt:e=>setTd({st:e.target.value}),tdDue:td.due||'',setTdDue:e=>setTd({due:e.target.value}),
+      tdKey:e=>{if(e.key==='Enter')saveTask();if(e.key==='Escape')this.setState({editTask:null,td:null});},
+      saveTask,cancelTask:()=>this.setState({editTask:null,td:null}),
+      limModal:s.limModal,openLim:e=>{stop(e);this.setState({limModal:true,limDraft:{...s.limits}});},closeLim:()=>this.setState({limModal:false,limDraft:null}),
+      saveLim:()=>{const l=s.limDraft;this.setState({limits:l,colShown:l.cols,taskShown:l.tasks,limModal:false,limDraft:null});},
+      limRows:[['cols','Collections shown'],['notes','Notes per collection (max)'],['tasks','Tasks shown']].map(([k,l])=>({label:l,value:lim[k],set:e=>{const v=Math.max(1,Math.min(50,parseInt(e.target.value)||1));this.setState({limDraft:{...lim,[k]:v}});}})),
+      colJournalLink:signed&&s.collections.length<=s.colShown,taskKchloeLink:signed&&s.tasks.length<=s.taskShown,
+      col2W:exp?'521px':'0px',
+      rootH:this.props.fill?'100%':'100vh',rootMinH:this.props.fill?'0px':'640px',
+      mhAbout:o.about?'640px':'0px',bdAbout:o.about?'1px solid #e6e1d6':'0px solid transparent',
+      colSortOpen:this.isMenu('colSort',0),openColSort:e=>{stop(e);this.toggleMenu('colSort',0);},colSortItems:sortMenu(s.colSort,'colSort'),
+      taskSortOpen:this.isMenu('taskSort',0),openTaskSort:e=>{stop(e);this.toggleMenu('taskSort',0);},taskSortItems:sortMenu(s.taskSort,'taskSort'),
+      projModal:s.projModal,openProj:e=>{stop(e);this.setState({projModal:true,menu:null});},closeProj:()=>this.closeProj(),
+      projRows,projCount:s.projects.length,newProj:s.newProj,setNewProj:e=>this.setState({newProj:e.target.value}),
+      newProjKey:e=>{if(e.key==='Enter'&&s.newProj.trim())this.setState({projects:[...s.projects,{id:'p'+(++uid),name:s.newProj.trim(),color:PALETTE[s.projects.length%PALETTE.length]}],newProj:''});},
+      tagCount:s.tags.length,
+      expanded:exp, expandIcon:exp?'arrow_back':'arrow_forward', expandTitle:exp?'Collapse':'Expand',
+      toggleExpand:()=>this.setState({expanded:!exp}),
+      close:()=>this.props.onClose&&this.props.onClose(),
+      tAbout:()=>this.tog('about'),oAbout:!!o.about,chevAbout:chev(o.about),
+      tNotes:()=>this.tog('notes'),oNotes:!!o.notes,chevNotes:chev(o.notes),
+      tHistory:()=>this.tog('history'),oHistory:!!o.history,chevHistory:chev(o.history),
+      tCollections:()=>this.tog('collections'),oCollections:!!o.collections,chevCollections:chev(o.collections),
+      tTasks:()=>this.tog('tasks'),oTasks:!!o.tasks,chevTasks:chev(o.tasks),
+      tSettings:()=>this.tog('settings'),oSettings:!!o.settings,chevSettings:chev(o.settings),
+      tsGeneral:()=>this.togS('general'),sGeneral:!!so.general,chevGeneral:chev(so.general),
+      tsAccount:()=>this.togS('account'),sAccount:!!so.account,chevAccount:chev(so.account),
+      tsTags:()=>this.togS('tags'),sTags:!!so.tags,chevTags:chev(so.tags),
+      tsGroups:()=>this.togS('groups'),sGroups:!!so.groups,chevGroups:chev(so.groups),
+      aboutView:!s.aboutEdit,aboutEditing:s.aboutEdit,
+      aboutTitle:ab.title,aboutUrl:ab.url,aboutTags:ab.tags.map(t=>({name:t})),
+      patternsView:(ab.patterns.length?ab.patterns:['This page only']).map(t=>({text:t})),ignoreNote:ab.ignoreQuery?'Ignores ?query and #hash':'',
+      editAbout:()=>this.setState({aboutEdit:true,aDraft:{...ab,tags:[...ab.tags],patterns:[...ab.patterns]},tagInput:'',patInput:''}),
+      aTitle:ad.title,setATitle:e=>setAD({title:e.target.value}),
+      aTags:ad.tags.map(t=>({name:t,remove:()=>setAD({tags:ad.tags.filter(x=>x!==t)})})),
+      tagInput:s.tagInput,setTagInput:e=>this.setState({tagInput:e.target.value}),
+      tagKey:e=>{if(e.key==='Enter'){const v=s.tagInput.trim().replace(/^#/,'');this.setState({tagInput:'',aDraft:v&&!ad.tags.includes(v)?{...ad,tags:[...ad.tags,v]}:ad});}},
+      patModal:s.patModal,
+      openPat:e=>{stop(e);this.setState({patModal:true,patDraft:{patterns:[...ab.patterns],ignoreQuery:ab.ignoreQuery},patInput:'',menu:null});},
+      closePat:()=>this.setState({patModal:false,patDraft:null,patInput:''}),
+      savePat:()=>{const pd=s.patDraft;const pi=s.patInput.trim();const pats=[...new Set([...pd.patterns,...(pi?[pi]:[])].map(x=>x.trim()).filter(Boolean))];this.setState({about:{...ab,patterns:pats,ignoreQuery:pd.ignoreQuery},patModal:false,patDraft:null,patInput:''});},
+      pCount:(s.patDraft?s.patDraft.patterns:ab.patterns).length,
+      pPatterns:(s.patDraft?s.patDraft.patterns:[]).map((p,i)=>({value:p,set:e=>this.setState({patDraft:{...s.patDraft,patterns:s.patDraft.patterns.map((x,j)=>j===i?e.target.value:x)}}),remove:()=>this.setState({patDraft:{...s.patDraft,patterns:s.patDraft.patterns.filter((x,j)=>j!==i)}})})),
+      pIgnore:s.patDraft?s.patDraft.ignoreQuery:ab.ignoreQuery,togglePIgnore:()=>this.setState({patDraft:{...s.patDraft,ignoreQuery:!s.patDraft.ignoreQuery}}),
+      patInput:s.patInput,setPatInput:e=>this.setState({patInput:e.target.value}),
+      patKey:e=>{if(e.key==='Enter'){const v=s.patInput.trim();const pd=s.patDraft;this.setState({patInput:'',patDraft:v&&!pd.patterns.includes(v)?{...pd,patterns:[...pd.patterns,v]}:pd});}},
+      aIgnore:ad.ignoreQuery,toggleAIgnore:()=>setAD({ignoreQuery:!ad.ignoreQuery}),
+      saveAbout:()=>this.setState({about:ad,aboutEdit:false,aDraft:null}),cancelAbout:()=>this.setState({aboutEdit:false,aDraft:null}),
+      noteCount:s.notes.length,notes,noNotes:!s.notes.length,colNames,addNote:()=>this.addNote(),
+      sortOpen:this.isMenu('sort',0),openSort:e=>{stop(e);this.toggleMenu('sort',0);},
+      sortItems:[['time','By time'],['page','By page order']].map(([k,l])=>({label:l,check:s.noteSort===k?'check':'',pick:()=>this.setState({noteSort:k,menu:null})})),
+      histCount:hAll.length,history,
+      filterOpen:this.isMenu('filter',0),openFilter:e=>{stop(e);this.toggleMenu('filter',0);},
+      filterIcon:fCur[1],filterBg:s.histFilter==='all'?'transparent':'#ece6d8',
+      filterItems:FL.map(([k,ic,l])=>({icon:ic,label:l,count:hAll.filter(h=>match(h,k)).length,check:s.histFilter===k?'check':'',pick:()=>this.setState({histFilter:k,histShown:10,menu:null})})),
+      hasMoreHist:hFilt.length>s.histShown,moreHist:()=>this.setState({histShown:s.histShown+10}),
+      histDraft:s.histDraft,setHistDraft:e=>this.setState({histDraft:e.target.value}),
+      saveHist:e=>{stop(e);this.setState({history:s.history.map(h=>h.id===s.editHist?{...h,text:s.histDraft}:h),editHist:null});},
+      cancelHist:e=>{stop(e);this.setState({editHist:null});},
+      isLocal:!signed,isSigned:signed,
+      colCount:s.collections.length,collections:colsShown,hasMoreCol:s.collections.length>s.colShown,noMoreCol:s.collections.length<=s.colShown,moreCol:()=>this.setState({colShown:s.colShown+s.limits.cols}),
+      addingCol:s.addingCol,startAddCol:()=>this.setState({addingCol:!s.addingCol}),newCol:s.newCol,setNewCol:e=>this.setState({newCol:e.target.value}),
+      colKey:e=>{if(e.key==='Enter'&&s.newCol.trim()){const id='c'+(++uid);this.setState({collections:[{id,name:s.newCol.trim(),count:0,updated:'now',vis:'private',entries:[]},...s.collections],newCol:'',addingCol:false,colOpen:{...s.colOpen,[id]:true}});}if(e.key==='Escape')this.setState({addingCol:false});},
+      taskCount:s.tasks.length,taskGroups,hasMoreTask:s.tasks.length>s.taskShown,noMoreTask:s.tasks.length<=s.taskShown,moreTask:()=>this.setState({taskShown:s.taskShown+s.limits.tasks}),
+      ntOpen:s.ntOpen,toggleNt:()=>this.setState({ntOpen:!s.ntOpen,ntTitle:''}),ntTitle:s.ntTitle,setNtTitle:e=>this.setState({ntTitle:e.target.value}),
+      ntProj:s.ntProj,setNtProj:e=>this.setState({ntProj:e.target.value}),projNames:[...s.projects.map(p=>({id:p.id,name:p.name})),{id:'',name:'Uncategorized'}],
+      createTask:newTask,ntKey:e=>{if(e.key==='Enter')newTask();},
+      lang:s.lang,setLang:e=>this.setState({lang:e.target.value}),tz:s.tz,setTz:e=>this.setState({tz:e.target.value}),theme:s.theme,setTheme:e=>this.setState({theme:e.target.value}),
+      accountState:signed?'jung@kewtea.com':'Local',
+      toggleAuth:()=>this.setState({authTab:s.authTab==='login'?'signup':'login'}),
+      authSwitch:s.authTab==='login'?'Create account':'I have an account',
+      email:s.email,setEmail:e=>this.setState({email:e.target.value}),pw:s.pw,setPw:e=>this.setState({pw:e.target.value}),
+      loginLabel:s.syncing?'Syncing…':(s.authTab==='login'?'Log in':'Sign up'),
+      syncHint:s.syncing?'Merging 128 local items into the cloud…':'Local data merges into the cloud on sign-in.',
+      login:()=>this.login(),signOut:()=>this.setState({signedIn:false}),
+      tags,tagSort:s.tagSort,setTagSort:e=>this.setState({tagSort:e.target.value}),
+      addingTag:s.addingTag,startAddTag:()=>this.setState({addingTag:!s.addingTag}),newTag:s.newTag,setNewTag:e=>this.setState({newTag:e.target.value}),
+      newTagKey:e=>{if(e.key==='Enter'&&s.newTag.trim())this.setState({tags:[{name:s.newTag.trim(),count:0,vis:'private'},...s.tags],newTag:'',addingTag:false});},
+      groups,slotLabel:s.groups.length+' / 3',addGroupColor:s.groups.length<3?'#5c5850':'#d6d0c3',addGroupTitle:s.groups.length<3?'Add group':'No free slots',
+      addGroup:()=>{if(s.groups.length<3)this.setState({groups:[...s.groups,{name:'studio',count:1,handle:'@studio',on:true,status:'active'}]});}
+    };
+  }
+}
+</script>
+</body>
+</html>

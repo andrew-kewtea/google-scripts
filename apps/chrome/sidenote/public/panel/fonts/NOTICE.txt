@@ -1,0 +1,3 @@
+Jost (OFL) by indestructible type*.
+Material Symbols Outlined subset (Apache-2.0) by Google.
+Files are vendored so the panel does not request a font CDN.

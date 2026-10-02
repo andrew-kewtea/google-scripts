@@ -1,6 +1,6 @@
 Status: active  
 Owner: jungh  
-Last reviewed: 2026-10-01
+Last reviewed: 2026-10-02
 
 # Quickstart
 
@@ -90,6 +90,7 @@ cd ~/webProjects/google-scripts/apps/chrome/sidenote
 ### 4. 빌드 후 로컬 로드
 
 ```bash
+pnpm test
 pnpm typecheck
 pnpm build
 ```

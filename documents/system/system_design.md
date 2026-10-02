@@ -1,7 +1,7 @@
 Status: active  
 Canonical: yes  
 Owner: jungh  
-Last reviewed: 2026-10-01  
+Last reviewed: 2026-10-02  
 Related code: `apps/`, `pnpm-workspace.yaml`
 
 # System design
@@ -40,7 +40,7 @@ A util package is worth adding only when two products need the same function and
 - Chrome can depend on a workspace package if the extension build bundles it.
 - Apps Script does not run `node_modules`. A GAS library is a separate script referenced from `appsscript.json` `dependencies.libraries`, or a file copied into `src/`. That is a different mechanism from a pnpm package.
 
-Until then, keep helpers inside the product (`gsheet_sync/src/utils/`, `sidenote/src/lib/`).
+Until then, keep helpers inside the product (`gsheet_sync/src/utils/`, `sidenote/src/shared/`).
 
 ## Canonical detail
 

@@ -1,6 +1,6 @@
 Status: active  
 Owner: jungh  
-Last reviewed: 2026-10-01
+Last reviewed: 2026-10-02
 
 # Using this repo
 
@@ -29,7 +29,7 @@ pnpm --filter sidenote build
 | Filter name | Directory | What you run |
 | --- | --- | --- |
 | `gsheet_sync` | `apps/gas/bound/gsheet_sync` | `pnpm --filter gsheet_sync test` then `push` when you mean to upload |
-| `sidenote` | `apps/chrome/sidenote` | `pnpm --filter sidenote build`, then load `dist/` unpacked |
+| `sidenote` | `apps/chrome/sidenote` | `pnpm --filter sidenote test`, then `build`, then load `dist/` unpacked |
 
 Root scripts:
 
@@ -46,7 +46,7 @@ Root scripts:
 | Question | Open |
 | --- | --- |
 | Sheet columns, gid, Fast2 paths | `documents/specs/products/gsheet_sync/spec.md` |
-| Side panel behavior | `documents/specs/products/sidenote/spec.md` |
+| Overlay panel behavior | `documents/specs/products/sidenote/spec.md` |
 | Why the TypeScript sheet app is gone | `documents/system/decisions/ADR-2026-10-01-retire-ts-gsheet-sync.md` |
 
 Code-adjacent `readme.txt` files only point here.

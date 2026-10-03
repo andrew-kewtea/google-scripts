@@ -45,6 +45,14 @@ export type Session = {
   groupName: string;
 };
 
+export function pageContextFromSearch(search: string): { url: string; title: string } {
+  const params = new URLSearchParams(search);
+  return {
+    url: params.get('url') ?? '',
+    title: params.get('title') ?? '',
+  };
+}
+
 export function createSession(): Session {
   return {
     url: '',

@@ -19,6 +19,13 @@ function postPage(frame: HTMLIFrameElement): void {
   );
 }
 
+function panelSrc(): string {
+  const src = new URL(chrome.runtime.getURL('panel/index.html'));
+  src.searchParams.set('url', location.href);
+  src.searchParams.set('title', document.title);
+  return src.toString();
+}
+
 function paint(el: HTMLElement, style: Record<string, string>): void {
   for (const [key, value] of Object.entries(style)) {
     el.style.setProperty(key, value, 'important');
@@ -83,7 +90,7 @@ function ensure(): HTMLIFrameElement {
   const frame = document.createElement('iframe');
   frame.title = 'sidenote';
   paint(frame, frameChrome(false));
-  frame.src = chrome.runtime.getURL('panel/index.html');
+  frame.src = panelSrc();
   frame.addEventListener('load', () => postPage(frame));
   host.append(shade, frame);
   document.documentElement.append(host);

@@ -29,13 +29,13 @@ export function collectionsSection(state: SidenoteState, session: Session): stri
     </button>
     <div class="sec-body${open ? ' open' : ''}" ${open ? '' : 'inert'}>
       <div class="toolbar">
+        <button type="button" class="icon-btn" data-action="add-collection" title="New collection" aria-label="New collection">${icon('add')}</button>
         ${anchor(
           'col-sort',
           'collections',
           `<button type="button" class="icon-btn" data-action="toggle-menu" data-menu="col-sort" data-id="collections" title="Sort" aria-label="Sort">${icon('sort')}${icon('arrow_drop_down')}</button>`,
           menu,
         )}
-        <button type="button" class="icon-btn" data-action="add-collection" title="New collection" aria-label="New collection">${icon('add')}</button>
       </div>
       ${adder}${list}
       ${more ? `<button type="button" class="pill" data-action="show-more-collections">Show more</button>` : ''}

@@ -18,7 +18,6 @@ export function renderPanel(state: SidenoteState, session: Session): string {
         <button type="button" data-action="toggle-expand" title="${expandLabel}" aria-label="${expandLabel}">${icon(expandIcon)}</button>
         <button type="button" data-action="close-panel" title="Close" aria-label="Close">${icon('close')}</button>
       </div>
-      ${session.notice ? `<p class="save-banner">${esc(session.notice)}</p>` : ''}
       ${aboutSection(state, session)}
       ${notesSection(state, session)}
       ${historySection(state, session)}
@@ -33,6 +32,14 @@ export function renderPanel(state: SidenoteState, session: Session): string {
         ${settingsSection(state, session)}
       </div>
     </div>
+    ${session.notice ? noticeBanner(session.notice) : ''}
+  </div>`;
+}
+
+function noticeBanner(message: string): string {
+  return `<div class="save-banner" role="status">
+    <p>${esc(message)}</p>
+    <button type="button" data-action="dismiss-notice" title="Dismiss" aria-label="Dismiss">${icon('close')}</button>
   </div>`;
 }
 

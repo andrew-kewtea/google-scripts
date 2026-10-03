@@ -40,14 +40,14 @@ export function tasksSection(state: SidenoteState, session: Session): string {
     </button>
     <div class="sec-body${open ? ' open' : ''}" ${open ? '' : 'inert'}>
       <div class="toolbar">
-        <button type="button" class="mini" data-action="open-projects" title="Projects" aria-label="Projects">${icon('tune')}</button>
+        <button type="button" class="icon-btn" data-action="add-task" title="New task" aria-label="New task">${icon('add')}</button>
         ${anchor(
           'task-sort',
           'tasks',
           `<button type="button" class="icon-btn" data-action="toggle-menu" data-menu="task-sort" data-id="tasks" title="Sort" aria-label="Sort">${icon('sort')}${icon('arrow_drop_down')}</button>`,
           menu,
         )}
-        <button type="button" class="icon-btn" data-action="add-task" title="New task" aria-label="New task">${icon('add')}</button>
+        <button type="button" class="mini" data-action="open-projects" title="Projects" aria-label="Projects">${icon('tune')}</button>
       </div>
       ${creator}${blocks}
       ${more ? `<button type="button" class="pill" data-action="show-more-tasks">Show more</button>` : ''}

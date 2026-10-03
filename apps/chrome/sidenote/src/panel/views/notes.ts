@@ -18,13 +18,13 @@ export function notesSection(state: SidenoteState, session: Session): string {
       )
     : '';
   const toolbar = `<div class="toolbar">
+    <button type="button" class="icon-btn" data-action="add-note" title="New note" aria-label="New note">${icon('add')}</button>
     ${anchor(
       'note-sort',
       'notes',
       `<button type="button" class="icon-btn" data-action="toggle-menu" data-menu="note-sort" data-id="notes" title="Sort" aria-label="Sort">${icon('sort')}${icon('arrow_drop_down')}</button>`,
       sortMenu,
     )}
-    <button type="button" class="icon-btn" data-action="add-note" title="New note" aria-label="New note">${icon('add')}</button>
   </div>`;
   const rows = notes.map((note) => noteRow(state, session, note)).join('');
   const editingNew = session.noteKey === 'new' ? noteEditor(state, session) : '';

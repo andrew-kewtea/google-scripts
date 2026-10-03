@@ -60,6 +60,10 @@ body {
 }
 button, input, textarea, select { font-family: inherit; color: inherit; }
 button { cursor: pointer; }
+button, .bar, .ms {
+  user-select: none;
+  caret-color: transparent;
+}
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
@@ -76,6 +80,7 @@ a:hover { text-decoration: underline; }
 }
 
 .panel {
+  position: relative;
   height: 100%;
   min-height: 0;
   width: 100%;
@@ -114,6 +119,7 @@ a:hover { text-decoration: underline; }
   justify-content: flex-end;
   gap: 2px;
   padding: 0 6px;
+  cursor: default;
 }
 .bar button {
   width: 34px;
@@ -375,7 +381,39 @@ select { height: 30px; padding: 0 8px; background: transparent; max-width: 180px
 .text-link { margin-left: auto; border: 0; background: none; color: var(--link); font-size: 13px; padding: 0; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .hint { margin: 0; color: var(--muted); font-size: 12.5px; }
-.save-banner { margin: 0; padding: 8px 16px; background: #f6efe2; color: var(--ink); font-size: 13px; }
+.save-banner {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 15;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 6px 8px 12px;
+  background: #f6efe2;
+  color: var(--ink);
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-menu);
+}
+.save-banner p { margin: 0; flex: 1; line-height: 1.4; }
+.save-banner button {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.save-banner button:hover { background: var(--chip); }
+.save-banner .ms { font-size: 18px; }
 
 .menu-anchor { position: relative; }
 .menu {

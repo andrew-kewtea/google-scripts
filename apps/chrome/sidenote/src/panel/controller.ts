@@ -3,7 +3,7 @@ import type { SectionKey, SidenoteState, Visibility } from '../shared/types.js';
 import type { DataService } from './dataService.js';
 import { nextColor } from './dataService.js';
 import { panelWidth, renderPanel } from './render.js';
-import { createSession, type Session } from './session.js';
+import { createSession, pageContextFromSearch, type Session } from './session.js';
 
 export type PanelHandle = {
   replace(next: SidenoteState): void;
@@ -22,6 +22,9 @@ function contextDead(error: unknown): boolean {
 export function startPanel(service: DataService, initial: SidenoteState): PanelHandle {
   let state = initial;
   const session = createSession();
+  const page = pageContextFromSearch(location.search);
+  session.url = page.url;
+  session.title = page.title;
   const root = document.getElementById('app');
   if (!root) return { replace() {} };
   const app = root;
@@ -68,8 +71,11 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       return;
     }
     if (data.type !== 'sidenote:page') return;
-    session.url = data.url ?? '';
-    session.title = data.title ?? '';
+    const url = data.url ?? '';
+    const title = data.title ?? '';
+    if (!url || (url === session.url && title === session.title)) return;
+    session.url = url;
+    session.title = title;
     draw();
   });
 
@@ -130,6 +136,9 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       case 'close-panel':
         if (window.parent !== window) window.parent.postMessage({ type: 'sidenote:close' }, '*');
         return;
+      case 'dismiss-notice':
+        session.notice = '';
+        break;
       case 'toggle-section': {
         const section = el.dataset.section as SectionKey;
         state = await service.setUi(state, {

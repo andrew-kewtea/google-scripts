@@ -21,16 +21,17 @@ export function settingsSection(state: SidenoteState, session: Session): string 
   </section>`;
 }
 
-function sub(id: string, label: string, extra: string, body: string, open: boolean): string {
+function sub(id: string, label: string, meta: string, toolbar: string, body: string, open: boolean): string {
+  const tools = toolbar ? `<div class="toolbar">${toolbar}</div>` : '';
   return `<div class="sub">
     <div class="sub-head">
       <button type="button" class="sub-toggle" data-action="toggle-settings" data-id="${esc(id)}" aria-expanded="${open}">
         <span class="sub-name">${esc(label)}</span>
+        ${meta}
         ${icon(open ? 'expand_less' : 'expand_more')}
       </button>
-      ${extra}
     </div>
-    <div class="sub-body${open ? ' open' : ''}"><div class="sub-pad">${body}</div></div>
+    <div class="sub-body${open ? ' open' : ''}" ${open ? '' : 'inert'}><div>${tools}<div class="sub-pad">${body}</div></div></div>
   </div>`;
 }
 
@@ -60,14 +61,13 @@ function generalBlock(state: SidenoteState, session: Session): string {
       </select>
     </label>`;
   const tune = `<button type="button" class="mini" data-action="open-limits" title="Display limits" aria-label="Display limits">${icon('tune')}</button>`;
-  return sub('general', 'General', tune, body, open);
+  return sub('general', 'General', '', tune, body, open);
 }
 
 function accountBlock(state: SidenoteState, session: Session): string {
   const open = state.ui.openSettings.includes('account');
   const used = stateBytes(state);
   const ratio = Math.min(100, (used / (10 * 1024 * 1024)) * 100);
-  const notice = session.notice ? `<p class="hint">${esc(session.notice)}</p>` : '';
   const body = `<div class="usage"><div style="width:${ratio}%"></div></div>
     <div class="meta">This device <span>${esc(formatBytes(used))}</span></div>
     <div class="account-form">
@@ -78,10 +78,9 @@ function accountBlock(state: SidenoteState, session: Session): string {
         <button type="button" class="btn" data-action="login-local">Google</button>
         <button type="button" class="text-link" data-action="login-local">Create account</button>
       </div>
-      ${notice}
       <p class="hint">Notes stay on this device until sign-in is connected.</p>
     </div>`;
-  return sub('account', 'Account', '<span class="muted">Local</span>', body, open);
+  return sub('account', 'Account', '<span class="count">Local</span>', '', body, open);
 }
 
 function tagsBlock(state: SidenoteState, session: Session): string {
@@ -103,7 +102,7 @@ function tagsBlock(state: SidenoteState, session: Session): string {
     ? `<input id="tag-name" value="${esc(session.tagName)}" placeholder="Tag name · Enter">`
     : '';
   const plus = `<button type="button" class="icon-btn" data-action="add-tag" title="New tag" aria-label="New tag">${icon('add')}</button>`;
-  return sub('tags', 'Tags', `<span class="count">${tags.length}</span>${plus}`, `${adder}${rows}`, open);
+  return sub('tags', 'Tags', `<span class="count">${tags.length}</span>`, plus, `${adder}${rows}`, open);
 }
 
 function groupsBlock(state: SidenoteState, session: Session): string {
@@ -130,7 +129,7 @@ function groupsBlock(state: SidenoteState, session: Session): string {
     ? `<input id="group-name" value="${esc(session.groupName)}" placeholder="Group name · Enter">`
     : '';
   const plus = `<button type="button" class="icon-btn" data-action="add-group" title="New group" aria-label="New group" ${full ? 'disabled' : ''}>${icon('add')}</button>`;
-  return sub('groups', 'User groups', `<span class="count">${groups.length} / 3</span>${plus}`, `${adder}${rows}`, open);
+  return sub('groups', 'User groups', `<span class="count">${groups.length} / 3</span>`, plus, `${adder}${rows}`, open);
 }
 
 function tagVisibility(state: SidenoteState, session: Session, id: string, current: Visibility): string {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createDataService, memoryPort } from '../dist/panel/dataService.js';
+import { pageContextFromSearch } from '../dist/panel/session.js';
 import { buildPageTree, visibleTreeRows } from '../dist/shared/pageTree.js';
 import { filterExcerpts, hostOf, matchPage } from '../dist/shared/scope.js';
 
@@ -201,4 +202,16 @@ test('soft-deleted excerpts drop out of the history filter', async () => {
     filterExcerpts(state, bbc.id, 'highlights').some((row) => row.id === target.id),
     false,
   );
+});
+
+test('panel reads the page address and title baked into its iframe query', () => {
+  const params = new URLSearchParams({
+    url: 'https://chatgpt.com/c/abc',
+    title: 'WSL2 홈 경로 보기',
+  });
+  assert.deepEqual(pageContextFromSearch(`?${params}`), {
+    url: 'https://chatgpt.com/c/abc',
+    title: 'WSL2 홈 경로 보기',
+  });
+  assert.deepEqual(pageContextFromSearch(''), { url: '', title: '' });
 });

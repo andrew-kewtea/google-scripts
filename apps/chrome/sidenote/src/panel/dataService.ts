@@ -39,6 +39,7 @@ export type DataService = {
   updateNote(state: SidenoteState, id: string, input: NoteInput): Promise<SidenoteState>;
   deleteNote(state: SidenoteState, id: string): Promise<SidenoteState>;
   addExcerpt(state: SidenoteState, input: ExcerptInput): Promise<SidenoteState>;
+  addManualExcerpt(state: SidenoteState, input: { url: string; title: string; text: string }): Promise<SidenoteState>;
   updateExcerpt(state: SidenoteState, id: string, text: string): Promise<SidenoteState>;
   deleteExcerpt(state: SidenoteState, id: string): Promise<SidenoteState>;
   createCollection(state: SidenoteState, name: string): Promise<SidenoteState>;
@@ -173,6 +174,25 @@ export function createDataService(port: StoragePort): DataService {
         updatedAt: now,
       };
       return commit({ ...state, excerpts: [row, ...state.excerpts] });
+    },
+
+    async addManualExcerpt(state, input) {
+      const text = input.text.trim();
+      if (!text || !input.url) return commit(state);
+      const next = withPage(state, input.url, input.title);
+      const page = matchPage(next, input.url);
+      if (!page) return commit(next);
+      const now = Date.now();
+      const row: PageExcerpt = {
+        id: newId(),
+        scope: { url: input.url, pageId: page.id, key: scopeKey(input.url) },
+        userAction: 'manual',
+        text,
+        editedByUser: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+      return commit({ ...next, excerpts: [row, ...next.excerpts] });
     },
 
     async updateExcerpt(state, id, text) {

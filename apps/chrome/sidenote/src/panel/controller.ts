@@ -266,6 +266,17 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       case 'show-more-history':
         state = await service.setUi(state, { historyShown: state.ui.historyShown + 10 });
         break;
+      case 'add-history':
+        session.historyDraft = true;
+        session.historyText = '';
+        session.focusId = 'history-text';
+        break;
+      case 'cancel-history':
+        session.historyDraft = false;
+        break;
+      case 'save-history':
+        await saveHistory();
+        break;
       case 'set-col-sort':
         if (el.dataset.sort === 'recency' || el.dataset.sort === 'size') {
           state = await service.setUi(state, { collectionSort: el.dataset.sort });
@@ -528,6 +539,9 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     assign('excerpt-text', (value) => {
       session.excerptText = value;
     });
+    assign('history-text', (value) => {
+      session.historyText = value;
+    });
     assign('collection-name', (value) => {
       session.collectionName = value;
     });
@@ -615,6 +629,18 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     session.taskStatus = task.status;
     session.taskDue = task.due ?? '';
     session.focusId = 'task-title';
+  }
+
+  async function saveHistory(): Promise<void> {
+    const text = session.historyText.trim();
+    if (!text) return;
+    if (!session.url) {
+      session.notice = 'Open a page before saving history.';
+      return;
+    }
+    state = await service.addManualExcerpt(state, { url: session.url, title: session.title, text });
+    session.historyDraft = false;
+    session.historyText = '';
   }
 
   async function saveNote(): Promise<void> {

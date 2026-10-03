@@ -5,6 +5,7 @@ import { createDataService, memoryPort } from '../dist/panel/dataService.js';
 import { pageContextFromSearch } from '../dist/panel/session.js';
 import { buildPageTree, visibleTreeRows } from '../dist/shared/pageTree.js';
 import { filterExcerpts, hostOf, matchPage } from '../dist/shared/scope.js';
+import { recentExcerpts } from '../dist/panel/present.js';
 
 test('empty storage is seeded once with five pages', async () => {
   const service = createDataService(memoryPort());
@@ -202,6 +203,30 @@ test('soft-deleted excerpts drop out of the history filter', async () => {
     filterExcerpts(state, bbc.id, 'highlights').some((row) => row.id === target.id),
     false,
   );
+});
+
+test('a typed history row is stored on the page and drops out of both lists when deleted', async () => {
+  const service = createDataService(memoryPort());
+  let state = await service.load();
+  const before = state.excerpts.filter((row) => !row.deletedAt).length;
+  state = await service.addManualExcerpt(state, {
+    url: 'https://chatgpt.com/c/abc',
+    title: 'Thread',
+    text: '  remembered this  ',
+  });
+  const page = matchPage(state, 'https://chatgpt.com/c/abc');
+  assert.ok(page);
+  const mine = state.excerpts.find((row) => row.text === 'remembered this');
+  assert.ok(mine);
+  assert.equal(mine.userAction, 'manual');
+  assert.equal(mine.scope.pageId, page.id);
+  assert.equal(filterExcerpts(state, page.id, 'all').some((row) => row.id === mine.id), true);
+  assert.equal(recentExcerpts(state)[0].id, mine.id);
+  assert.equal(state.excerpts.filter((row) => !row.deletedAt).length, before + 1);
+
+  state = await service.deleteExcerpt(state, mine.id);
+  assert.equal(filterExcerpts(state, page.id, 'all').some((row) => row.id === mine.id), false);
+  assert.equal(recentExcerpts(state).some((row) => row.id === mine.id), false);
 });
 
 test('panel reads the page address and title baked into its iframe query', () => {

@@ -312,6 +312,9 @@ select { height: 30px; padding: 0 8px; background: transparent; max-width: 180px
   cursor: pointer;
 }
 .hist.selected { background: var(--selected); }
+.hist-plain { cursor: default; }
+.hist-draft { cursor: default; }
+#history-text { min-height: 64px; }
 .hist-icon .ms { font-size: 18px; color: var(--ink-2); }
 .excerpt-text { font-size: 14px; line-height: 1.45; }
 .hist-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }

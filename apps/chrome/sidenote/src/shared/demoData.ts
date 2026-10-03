@@ -193,6 +193,7 @@ export function createDemoState(): SidenoteState {
         notes: true,
         history: true,
         collections: true,
+        globalHistory: true,
         tasks: true,
         settings: true,
       },

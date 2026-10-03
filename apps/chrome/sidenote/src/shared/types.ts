@@ -1,6 +1,6 @@
 export type Visibility = 'private' | 'public' | `group:${string}`;
 
-export type UserAction = 'read' | 'link' | 'form' | 'copy' | 'select';
+export type UserAction = 'read' | 'link' | 'form' | 'copy' | 'select' | 'manual';
 
 export type HistoryFilter = 'all' | 'read' | 'link' | 'form' | 'highlights';
 
@@ -127,7 +127,7 @@ export type Settings = {
   accountEmail: string;
 };
 
-export type SectionKey = 'about' | 'notes' | 'history' | 'collections' | 'tasks' | 'settings';
+export type SectionKey = 'about' | 'notes' | 'history' | 'collections' | 'globalHistory' | 'tasks' | 'settings';
 
 export type UiState = {
   expanded: boolean;

@@ -14,6 +14,15 @@ export function liveExcerpts(rows: PageExcerpt[], shown: number): { items: PageE
   return { items: sorted.slice(0, shown), more: sorted.length > shown };
 }
 
+export const GLOBAL_HISTORY_LIMIT = 100;
+
+export function recentExcerpts(state: SidenoteState, limit = GLOBAL_HISTORY_LIMIT): PageExcerpt[] {
+  return state.excerpts
+    .filter((row) => !row.deletedAt)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, limit);
+}
+
 export function noteCount(state: SidenoteState, pageId: string): number {
   return state.notes.filter((note) => note.pageId === pageId && !note.deletedAt).length;
 }
@@ -80,6 +89,8 @@ export function actionIcon(action: UserAction): string {
     case 'copy':
     case 'select':
       return 'ink_highlighter';
+    case 'manual':
+      return 'edit_note';
   }
 }
 

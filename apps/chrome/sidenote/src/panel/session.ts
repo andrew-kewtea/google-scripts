@@ -22,6 +22,8 @@ export type Session = {
   selectedExcerptId: string | null;
   excerptEditing: boolean;
   excerptText: string;
+  historyDraft: boolean;
+  historyText: string;
   newCollection: boolean;
   collectionName: string;
   newTask: boolean;
@@ -76,6 +78,8 @@ export function createSession(): Session {
     selectedExcerptId: null,
     excerptEditing: false,
     excerptText: '',
+    historyDraft: false,
+    historyText: '',
     newCollection: false,
     collectionName: '',
     newTask: false,

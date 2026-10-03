@@ -3,7 +3,8 @@ import { icon, esc } from './format.js';
 import type { Session } from './session.js';
 import { aboutSection } from './views/about.js';
 import { collectionsSection } from './views/collections.js';
-import { globalHistorySection, historySection } from './views/history.js';
+import { contextsSection, contextTaskModal } from './views/contexts.js';
+import { excerptModal, historySection } from './views/history.js';
 import { notesSection } from './views/notes.js';
 import { settingsSection } from './views/settings.js';
 import { tasksSection } from './views/tasks.js';
@@ -28,12 +29,14 @@ export function renderPanel(state: SidenoteState, session: Session): string {
           <button type="button" data-action="close-second" title="Close this column" aria-label="Close this column">${icon('close')}</button>
         </div>
         ${collectionsSection(state, session)}
-        ${globalHistorySection(state, session)}
+        ${contextsSection(state, session)}
         ${tasksSection(state, session)}
         ${settingsSection(state, session)}
       </div>
     </div>
     ${session.notice ? noticeBanner(session.notice) : ''}
+    ${excerptModal(session)}
+    ${contextTaskModal(state, session)}
   </div>`;
 }
 

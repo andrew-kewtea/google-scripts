@@ -1,6 +1,6 @@
 export type Visibility = 'private' | 'public' | `group:${string}`;
 
-export type UserAction = 'read' | 'link' | 'form' | 'copy' | 'select' | 'manual';
+export type UserAction = 'read' | 'link' | 'form' | 'click' | 'scrap' | 'copy' | 'select' | 'manual';
 
 export type HistoryFilter = 'all' | 'read' | 'link' | 'form' | 'highlights';
 
@@ -39,7 +39,7 @@ export type Note = {
   text: string;
   visibility: Visibility;
   collectionId: string;
-  keywords: string[];
+  tagIds: string[];
   anchor?: { selector: string; offset: number; textQuote?: string };
   createdAt: number;
   updatedAt: number;
@@ -60,7 +60,17 @@ export type PageExcerpt = {
     section?: string;
   };
   editedByUser?: boolean;
+  contextId: string | null;
+  tagIds: string[];
   createdAt: number;
+  updatedAt: number;
+  deletedAt?: number;
+};
+
+export type ContextThread = {
+  id: string;
+  name: string;
+  taskIds: string[];
   updatedAt: number;
   deletedAt?: number;
 };
@@ -127,7 +137,7 @@ export type Settings = {
   accountEmail: string;
 };
 
-export type SectionKey = 'about' | 'notes' | 'history' | 'collections' | 'globalHistory' | 'tasks' | 'settings';
+export type SectionKey = 'about' | 'notes' | 'history' | 'collections' | 'contexts' | 'tasks' | 'settings';
 
 export type UiState = {
   expanded: boolean;
@@ -136,10 +146,14 @@ export type UiState = {
   historyFilter: HistoryFilter;
   collectionSort: ListSort;
   taskSort: ListSort;
+  contextSort: ListSort;
   historyShown: number;
   collectionsShown: number;
   tasksShown: number;
+  contextsShown: number;
+  contextItemsShown: Record<string, number>;
   openCollections: string[];
+  openContexts: string[];
   openProjects: string[];
   openSettings: string[];
   treeOpen: string[];
@@ -151,6 +165,7 @@ export type SidenoteState = {
   notes: Note[];
   excerpts: PageExcerpt[];
   collections: Collection[];
+  contexts: ContextThread[];
   projects: Project[];
   tasks: Task[];
   tags: TagRecord[];
@@ -163,7 +178,7 @@ export type NoteInput = {
   text: string;
   visibility: Visibility;
   collectionId: string;
-  keywords: string[];
+  tagIds: string[];
 };
 
 export type NoteCreate = NoteInput & {

@@ -2,6 +2,7 @@ import { createDemoState } from '../shared/demoData.js';
 import { hostOf, matchPage, scopeKey } from '../shared/scope.js';
 import type {
   Collection,
+  ContextThread,
   DisplayLimits,
   ExcerptInput,
   Note,
@@ -16,6 +17,7 @@ import type {
   Task,
   TaskStatus,
   UiState,
+  UserAction,
   UserGroup,
   Visibility,
 } from '../shared/types.js';
@@ -39,9 +41,27 @@ export type DataService = {
   updateNote(state: SidenoteState, id: string, input: NoteInput): Promise<SidenoteState>;
   deleteNote(state: SidenoteState, id: string): Promise<SidenoteState>;
   addExcerpt(state: SidenoteState, input: ExcerptInput): Promise<SidenoteState>;
-  addManualExcerpt(state: SidenoteState, input: { url: string; title: string; text: string }): Promise<SidenoteState>;
-  updateExcerpt(state: SidenoteState, id: string, text: string): Promise<SidenoteState>;
+  addManualExcerpt(
+    state: SidenoteState,
+    input: {
+      url: string;
+      title: string;
+      text: string;
+      userAction: UserAction;
+      contextId: string | null;
+      tagIds: string[];
+      excerpt?: string;
+    },
+  ): Promise<SidenoteState>;
+  updateExcerpt(
+    state: SidenoteState,
+    id: string,
+    input: { text: string; contextId: string | null; tagIds: string[] },
+  ): Promise<SidenoteState>;
+  updateExcerptContent(state: SidenoteState, id: string, excerpt: string): Promise<SidenoteState>;
   deleteExcerpt(state: SidenoteState, id: string): Promise<SidenoteState>;
+  createContext(state: SidenoteState, name: string): Promise<SidenoteState>;
+  setContextTasks(state: SidenoteState, id: string, taskIds: string[]): Promise<SidenoteState>;
   createCollection(state: SidenoteState, name: string): Promise<SidenoteState>;
   createTask(
     state: SidenoteState,
@@ -92,8 +112,10 @@ export function createDataService(port: StoragePort): DataService {
   return {
     async load() {
       const existing = await port.get();
-      if (existing) return existing;
-      return commit(createDemoState());
+      if (!existing) return commit(createDemoState());
+      const normalized = normalizeState(existing);
+      if (normalized.changed) return commit(normalized.state);
+      return normalized.state;
     },
 
     async saveAbout(state, url, title, tags) {
@@ -124,7 +146,7 @@ export function createDataService(port: StoragePort): DataService {
         text,
         visibility: input.visibility,
         collectionId: input.collectionId,
-        keywords: cleanWords(input.keywords),
+        tagIds: cleanIds(input.tagIds),
         createdAt: now,
         updatedAt: now,
       };
@@ -143,7 +165,7 @@ export function createDataService(port: StoragePort): DataService {
                 text,
                 visibility: input.visibility,
                 collectionId: input.collectionId,
-                keywords: cleanWords(input.keywords),
+                tagIds: cleanIds(input.tagIds),
                 updatedAt: Date.now(),
               }
             : note,
@@ -170,6 +192,8 @@ export function createDataService(port: StoragePort): DataService {
         text: input.text,
         excerpt: input.excerpt,
         range: input.range,
+        contextId: null,
+        tagIds: [],
         createdAt: now,
         updatedAt: now,
       };
@@ -178,30 +202,55 @@ export function createDataService(port: StoragePort): DataService {
 
     async addManualExcerpt(state, input) {
       const text = input.text.trim();
-      if (!text || !input.url) return commit(state);
+      if (!text || !input.url || !ENTRY_ACTIONS.includes(input.userAction)) return commit(state);
       const next = withPage(state, input.url, input.title);
       const page = matchPage(next, input.url);
       if (!page) return commit(next);
       const now = Date.now();
+      const excerpt = input.excerpt?.trim();
       const row: PageExcerpt = {
         id: newId(),
         scope: { url: input.url, pageId: page.id, key: scopeKey(input.url) },
-        userAction: 'manual',
+        userAction: input.userAction,
         text,
+        excerpt: excerpt || undefined,
         editedByUser: true,
+        contextId: liveContextId(next, input.contextId),
+        tagIds: cleanIds(input.tagIds),
         createdAt: now,
         updatedAt: now,
       };
       return commit({ ...next, excerpts: [row, ...next.excerpts] });
     },
 
-    async updateExcerpt(state, id, text) {
+    async updateExcerpt(state, id, input) {
+      const text = input.text.trim();
       const now = Date.now();
       return commit({
         ...state,
         excerpts: state.excerpts.map((row) =>
           row.id === id && !row.deletedAt
-            ? { ...row, text: text.trim() || row.text, editedByUser: true, updatedAt: now }
+            ? {
+                ...row,
+                text: text || row.text,
+                contextId: liveContextId(state, input.contextId),
+                tagIds: cleanIds(input.tagIds),
+                editedByUser: true,
+                updatedAt: now,
+              }
+            : row,
+        ),
+      });
+    },
+
+    async updateExcerptContent(state, id, excerpt) {
+      const now = Date.now();
+      const text = excerpt.trim();
+      return commit({
+        ...state,
+        excerpts: state.excerpts.map((row) =>
+          row.id === id && !row.deletedAt
+            ? { ...row, excerpt: text || undefined, editedByUser: true, updatedAt: now }
             : row,
         ),
       });
@@ -213,6 +262,29 @@ export function createDataService(port: StoragePort): DataService {
         ...state,
         excerpts: state.excerpts.map((row) =>
           row.id === id ? { ...row, deletedAt: now, updatedAt: now } : row,
+        ),
+      });
+    },
+
+    async createContext(state, name) {
+      const trimmed = name.trim();
+      if (!trimmed) return commit(state);
+      const row: ContextThread = {
+        id: newId(),
+        name: trimmed,
+        taskIds: [],
+        updatedAt: Date.now(),
+      };
+      return commit({ ...state, contexts: [row, ...state.contexts] });
+    },
+
+    async setContextTasks(state, id, taskIds) {
+      const live = new Set(state.tasks.filter((task) => !task.deletedAt).map((task) => task.id));
+      const next = [...new Set(taskIds.filter((taskId) => live.has(taskId)))];
+      return commit({
+        ...state,
+        contexts: state.contexts.map((context) =>
+          context.id === id && !context.deletedAt ? { ...context, taskIds: next, updatedAt: Date.now() } : context,
         ),
       });
     },
@@ -410,8 +482,93 @@ function replacePage(state: SidenoteState, id: string, patch: Partial<PageRecord
   };
 }
 
-function cleanWords(words: string[]): string[] {
-  return [...new Set(words.map((word) => word.trim().replace(/^#/, '')).filter(Boolean))];
+const ENTRY_ACTIONS: UserAction[] = ['read', 'link', 'form', 'click', 'scrap', 'copy', 'select'];
+
+function cleanIds(ids: string[]): string[] {
+  return [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+}
+
+function liveContextId(state: SidenoteState, id: string | null): string | null {
+  if (!id) return null;
+  return state.contexts.some((context) => context.id === id && !context.deletedAt) ? id : null;
+}
+
+type StoredNote = Note & { keywords?: string[] };
+type StoredState = SidenoteState & {
+  contexts?: ContextThread[];
+  notes: StoredNote[];
+  excerpts: Array<PageExcerpt & { contextId?: string | null; tagIds?: string[] }>;
+  ui: UiState & {
+    contextSort?: UiState['contextSort'];
+    contextsShown?: number;
+    contextItemsShown?: Record<string, number>;
+    openContexts?: string[];
+    sections: UiState['sections'] & { globalHistory?: boolean; contexts?: boolean };
+  };
+};
+
+export function normalizeState(raw: SidenoteState): { state: SidenoteState; changed: boolean } {
+  const stored = raw as StoredState;
+  let changed = false;
+  const tags = [...(stored.tags ?? [])];
+  const byName = new Map<string, string>();
+  for (const tag of tags) {
+    if (!tag.deletedAt) byName.set(tag.name.toLowerCase(), tag.id);
+  }
+  const ensureTag = (name: string): string => {
+    const trimmed = name.trim().replace(/^#/, '');
+    if (!trimmed) return '';
+    const found = byName.get(trimmed.toLowerCase());
+    if (found) return found;
+    const id = newId();
+    tags.push({ id, name: trimmed, visibility: 'private', updatedAt: Date.now() });
+    byName.set(trimmed.toLowerCase(), id);
+    changed = true;
+    return id;
+  };
+  const notes = (stored.notes ?? []).map((note: StoredNote) => {
+    const keywords = note.keywords;
+    const tagIds = note.tagIds ?? keywords?.map(ensureTag).filter(Boolean) ?? [];
+    if (keywords || !note.tagIds) changed = true;
+    const next: StoredNote = { ...note, tagIds };
+    delete next.keywords;
+    return next as Note;
+  });
+  const excerpts = (stored.excerpts ?? []).map((row) => {
+    if (row.contextId === undefined || !row.tagIds) changed = true;
+    return { ...row, contextId: row.contextId ?? null, tagIds: row.tagIds ?? [] };
+  });
+  if (!stored.contexts) changed = true;
+  const sections = { ...stored.ui.sections };
+  if (sections.contexts === undefined) {
+    sections.contexts = true;
+    changed = true;
+  }
+  if ('globalHistory' in sections) {
+    delete sections.globalHistory;
+    changed = true;
+  }
+  const ui: UiState = {
+    ...stored.ui,
+    sections,
+    contextSort: stored.ui.contextSort ?? 'recency',
+    contextsShown: stored.ui.contextsShown ?? 20,
+    contextItemsShown: stored.ui.contextItemsShown ?? {},
+    openContexts: stored.ui.openContexts ?? [],
+  };
+  if (
+    stored.ui.contextSort === undefined ||
+    stored.ui.contextsShown === undefined ||
+    stored.ui.contextItemsShown === undefined ||
+    stored.ui.openContexts === undefined
+  ) {
+    changed = true;
+  }
+  if (tags.length !== (stored.tags ?? []).length) changed = true;
+  return {
+    changed,
+    state: { ...stored, notes, excerpts, tags, contexts: stored.contexts ?? [], ui },
+  };
 }
 
 function nextLocalNo(tasks: Task[]): number {

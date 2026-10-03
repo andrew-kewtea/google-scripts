@@ -1,5 +1,6 @@
 import { matchPage } from '../shared/scope.js';
-import type { SectionKey, SidenoteState, Visibility } from '../shared/types.js';
+import type { SectionKey, SidenoteState, UserAction, Visibility } from '../shared/types.js';
+import { ENTRY_ACTIONS } from './present.js';
 import type { DataService } from './dataService.js';
 import { nextColor } from './dataService.js';
 import { panelWidth, renderPanel } from './render.js';
@@ -52,10 +53,18 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       draw();
       return;
     }
-    if (session.patternsOpen || session.projectsOpen || session.limitsOpen) {
+    if (
+      session.patternsOpen ||
+      session.projectsOpen ||
+      session.limitsOpen ||
+      session.excerptModalId ||
+      session.contextTasksId
+    ) {
       session.patternsOpen = false;
       session.projectsOpen = false;
       session.limitsOpen = false;
+      session.excerptModalId = null;
+      session.contextTasksId = null;
       draw();
     }
   });
@@ -193,8 +202,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         session.noteText = '';
         session.noteVisibility = 'private';
         session.noteCollectionId = state.collections.find((item) => !item.deletedAt)?.id ?? '';
-        session.noteKeywords = [];
-        session.noteKw = '';
+        session.noteTagIds = [];
         session.focusId = 'note-text';
         break;
       case 'edit-note':
@@ -209,9 +217,6 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       case 'delete-note':
         state = await service.deleteNote(state, id);
         session.noteKey = null;
-        break;
-      case 'remove-keyword':
-        session.noteKeywords = session.noteKeywords.filter((word) => word !== el.dataset.word);
         break;
       case 'toggle-menu':
         toggleMenu(el.dataset.menu ?? '', id);
@@ -238,30 +243,69 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         }
         session.menu = null;
         break;
-      case 'select-excerpt':
-        if (session.excerptEditing && session.selectedExcerptId === id) return;
-        session.selectedExcerptId = id;
-        session.excerptEditing = false;
-        break;
-      case 'edit-excerpt': {
-        const row = state.excerpts.find((item) => item.id === id);
+      case 'edit-history': {
+        if (session.excerptEditing && session.selectedExcerptId === id) break;
+        const row = state.excerpts.find((item) => item.id === id && !item.deletedAt);
+        if (!row) break;
         session.selectedExcerptId = id;
         session.excerptEditing = true;
-        session.excerptText = row?.text ?? '';
-        session.focusId = 'excerpt-text';
+        session.historyEditText = row.text;
+        session.historyEditContextId = row.contextId ?? '';
+        session.historyEditTagIds = [...row.tagIds];
+        session.focusId = 'history-edit-text';
         break;
       }
-      case 'cancel-excerpt':
+      case 'cancel-history-edit':
         session.excerptEditing = false;
+        session.selectedExcerptId = null;
         break;
-      case 'save-excerpt':
-        state = await service.updateExcerpt(state, id, session.excerptText);
+      case 'save-history-edit':
+        state = await service.updateExcerpt(state, id, {
+          text: session.historyEditText,
+          contextId: session.historyEditContextId || null,
+          tagIds: session.historyEditTagIds,
+        });
         session.excerptEditing = false;
+        session.selectedExcerptId = null;
+        break;
+      case 'open-excerpt':
+        if (id === 'draft') {
+          session.excerptModalId = 'draft';
+          session.excerptModalText = session.historyExcerpt;
+        } else {
+          const row = state.excerpts.find((item) => item.id === id);
+          session.excerptModalId = id;
+          session.excerptModalText = row?.excerpt ?? '';
+        }
+        session.focusId = 'excerpt-modal-text';
+        break;
+      case 'close-excerpt':
+        session.excerptModalId = null;
+        break;
+      case 'save-excerpt-modal':
+        if (session.excerptModalId === 'draft') {
+          session.historyExcerpt = session.excerptModalText.trim();
+        } else if (session.excerptModalId) {
+          state = await service.updateExcerptContent(state, session.excerptModalId, session.excerptModalText);
+        }
+        session.excerptModalId = null;
         break;
       case 'delete-excerpt':
         state = await service.deleteExcerpt(state, id);
         session.selectedExcerptId = null;
         session.excerptEditing = false;
+        break;
+      case 'remove-history-tag': {
+        const tagId = el.dataset.tag ?? '';
+        if (el.dataset.scope === 'edit') {
+          session.historyEditTagIds = session.historyEditTagIds.filter((item) => item !== tagId);
+        } else {
+          session.historyTagIds = session.historyTagIds.filter((item) => item !== tagId);
+        }
+        break;
+      }
+      case 'remove-note-tag':
+        session.noteTagIds = session.noteTagIds.filter((item) => item !== (el.dataset.tag ?? ''));
         break;
       case 'show-more-history':
         state = await service.setUi(state, { historyShown: state.ui.historyShown + 10 });
@@ -269,14 +313,63 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       case 'add-history':
         session.historyDraft = true;
         session.historyText = '';
+        session.historyType = 'read';
+        session.historyContextId = '';
+        session.historyTagIds = [];
+        session.historyExcerpt = '';
         session.focusId = 'history-text';
         break;
       case 'cancel-history':
         session.historyDraft = false;
+        session.excerptModalId = session.excerptModalId === 'draft' ? null : session.excerptModalId;
         break;
       case 'save-history':
         await saveHistory();
         break;
+      case 'add-context':
+        session.newContext = true;
+        session.contextName = '';
+        session.focusId = 'context-name';
+        break;
+      case 'set-context-sort':
+        if (el.dataset.sort === 'recency' || el.dataset.sort === 'size') {
+          state = await service.setUi(state, { contextSort: el.dataset.sort });
+        }
+        session.menu = null;
+        break;
+      case 'toggle-context':
+        state = await service.setUi(state, { openContexts: toggleId(state.ui.openContexts, id) });
+        break;
+      case 'show-more-contexts':
+        state = await service.setUi(state, { contextsShown: state.ui.contextsShown + 20 });
+        break;
+      case 'show-more-context-items':
+        state = await service.setUi(state, {
+          contextItemsShown: {
+            ...state.ui.contextItemsShown,
+            [id]: (state.ui.contextItemsShown[id] ?? 20) + 20,
+          },
+        });
+        break;
+      case 'open-context-tasks': {
+        const context = state.contexts.find((item) => item.id === id && !item.deletedAt);
+        if (!context) break;
+        session.contextTasksId = id;
+        session.contextTaskChecks = [...context.taskIds];
+        break;
+      }
+      case 'close-context-tasks':
+        session.contextTasksId = null;
+        break;
+      case 'save-context-tasks': {
+        if (!session.contextTasksId) break;
+        const checks = Array.from(app.querySelectorAll<HTMLInputElement>('[data-context-task]:checked')).map(
+          (input) => input.dataset.contextTask ?? '',
+        );
+        state = await service.setContextTasks(state, session.contextTasksId, checks.filter(Boolean));
+        session.contextTasksId = null;
+        break;
+      }
       case 'set-col-sort':
         if (el.dataset.sort === 'recency' || el.dataset.sort === 'size') {
           state = await service.setUi(state, { collectionSort: el.dataset.sort });
@@ -413,12 +506,13 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     if (target.id === 'about-tag-input') {
       pushWord(session.aboutTags, session.tagInput);
       session.tagInput = '';
-    } else if (target.id === 'note-kw') {
-      pushWord(session.noteKeywords, session.noteKw);
-      session.noteKw = '';
     } else if (target.id === 'pattern-input') {
       if (session.patternInput.trim()) session.patterns.push(session.patternInput.trim());
       session.patternInput = '';
+    } else if (target.id === 'context-name') {
+      state = await service.createContext(state, session.contextName);
+      session.newContext = false;
+      session.contextName = '';
     } else if (target.id === 'collection-name') {
       state = await service.createCollection(state, session.collectionName);
       session.newCollection = false;
@@ -474,6 +568,17 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         state = await service.updateGroup(state, target.dataset.groupStatus, { status });
         draw();
       }
+      return;
+    }
+    if (target instanceof HTMLSelectElement && (target.id === 'history-tag' || target.id === 'edit-tag' || target.id === 'note-tag')) {
+      syncSession();
+      const tagId = target.value;
+      if (tagId) {
+        if (target.id === 'history-tag' && !session.historyTagIds.includes(tagId)) session.historyTagIds.push(tagId);
+        if (target.id === 'edit-tag' && !session.historyEditTagIds.includes(tagId)) session.historyEditTagIds.push(tagId);
+        if (target.id === 'note-tag' && !session.noteTagIds.includes(tagId)) session.noteTagIds.push(tagId);
+      }
+      draw();
       return;
     }
     if (target instanceof HTMLInputElement && target.dataset.groupRead) {
@@ -533,14 +638,26 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     assign('note-collection', (value) => {
       session.noteCollectionId = value;
     });
-    assign('note-kw', (value) => {
-      session.noteKw = value;
-    });
-    assign('excerpt-text', (value) => {
-      session.excerptText = value;
-    });
     assign('history-text', (value) => {
       session.historyText = value;
+    });
+    assign('history-edit-text', (value) => {
+      session.historyEditText = value;
+    });
+    assign('history-context', (value) => {
+      session.historyContextId = value;
+    });
+    assign('history-edit-context', (value) => {
+      session.historyEditContextId = value;
+    });
+    assign('history-type', (value) => {
+      if (isEntryAction(value)) session.historyType = value;
+    });
+    assign('excerpt-modal-text', (value) => {
+      session.excerptModalText = value;
+    });
+    assign('context-name', (value) => {
+      session.contextName = value;
     });
     assign('collection-name', (value) => {
       session.collectionName = value;
@@ -614,8 +731,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     session.noteText = note.text;
     session.noteVisibility = note.visibility;
     session.noteCollectionId = note.collectionId;
-    session.noteKeywords = [...note.keywords];
-    session.noteKw = '';
+    session.noteTagIds = [...note.tagIds];
     session.focusId = 'note-text';
   }
 
@@ -638,9 +754,21 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       session.notice = 'Open a page before saving history.';
       return;
     }
-    state = await service.addManualExcerpt(state, { url: session.url, title: session.title, text });
+    state = await service.addManualExcerpt(state, {
+      url: session.url,
+      title: session.title,
+      text,
+      userAction: session.historyType,
+      contextId: session.historyContextId || null,
+      tagIds: session.historyTagIds,
+      excerpt: session.historyExcerpt,
+    });
     session.historyDraft = false;
     session.historyText = '';
+    session.historyExcerpt = '';
+    session.historyTagIds = [];
+    session.historyContextId = '';
+    session.historyType = 'read';
   }
 
   async function saveNote(): Promise<void> {
@@ -648,7 +776,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       text: session.noteText,
       visibility: session.noteVisibility,
       collectionId: session.noteCollectionId,
-      keywords: session.noteKeywords,
+      tagIds: session.noteTagIds,
     };
     if (session.noteKey === 'new') {
       if (!session.url) {
@@ -673,7 +801,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       text: note.text,
       visibility,
       collectionId: note.collectionId,
-      keywords: note.keywords,
+      tagIds: note.tagIds,
     });
   }
 
@@ -728,6 +856,10 @@ function sameExceptExpanded(current: SidenoteState, next: SidenoteState): boolea
 
 function toggleId(list: string[], id: string): string[] {
   return list.includes(id) ? list.filter((item) => item !== id) : [...list, id];
+}
+
+function isEntryAction(value: string): value is UserAction {
+  return (ENTRY_ACTIONS as string[]).includes(value);
 }
 
 function pushWord(list: string[], raw: string): void {

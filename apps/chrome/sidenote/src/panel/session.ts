@@ -1,4 +1,4 @@
-import type { TaskStatus, Visibility } from '../shared/types.js';
+import type { TaskStatus, UserAction, Visibility } from '../shared/types.js';
 
 export type Session = {
   url: string;
@@ -17,13 +17,24 @@ export type Session = {
   noteText: string;
   noteVisibility: Visibility;
   noteCollectionId: string;
-  noteKeywords: string[];
-  noteKw: string;
+  noteTagIds: string[];
   selectedExcerptId: string | null;
   excerptEditing: boolean;
-  excerptText: string;
+  historyEditText: string;
+  historyEditContextId: string;
+  historyEditTagIds: string[];
+  excerptModalId: string | null;
+  excerptModalText: string;
   historyDraft: boolean;
   historyText: string;
+  historyType: UserAction;
+  historyContextId: string;
+  historyTagIds: string[];
+  historyExcerpt: string;
+  newContext: boolean;
+  contextName: string;
+  contextTasksId: string | null;
+  contextTaskChecks: string[];
   newCollection: boolean;
   collectionName: string;
   newTask: boolean;
@@ -73,13 +84,24 @@ export function createSession(): Session {
     noteText: '',
     noteVisibility: 'private',
     noteCollectionId: '',
-    noteKeywords: [],
-    noteKw: '',
+    noteTagIds: [],
     selectedExcerptId: null,
     excerptEditing: false,
-    excerptText: '',
+    historyEditText: '',
+    historyEditContextId: '',
+    historyEditTagIds: [],
+    excerptModalId: null,
+    excerptModalText: '',
     historyDraft: false,
     historyText: '',
+    historyType: 'read',
+    historyContextId: '',
+    historyTagIds: [],
+    historyExcerpt: '',
+    newContext: false,
+    contextName: '',
+    contextTasksId: null,
+    contextTaskChecks: [],
     newCollection: false,
     collectionName: '',
     newTask: false,

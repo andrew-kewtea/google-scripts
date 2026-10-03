@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createDataService, memoryPort } from '../dist/panel/dataService.js';
+import { createDataService, memoryPort, normalizeState } from '../dist/panel/dataService.js';
 import { pageContextFromSearch } from '../dist/panel/session.js';
+import { createDemoState } from '../dist/shared/demoData.js';
 import { buildPageTree, visibleTreeRows } from '../dist/shared/pageTree.js';
 import { filterExcerpts, hostOf, matchPage } from '../dist/shared/scope.js';
-import { recentExcerpts } from '../dist/panel/present.js';
 
 test('empty storage is seeded once with five pages', async () => {
   const service = createDataService(memoryPort());
@@ -37,7 +37,7 @@ test('note create, update, and soft delete stay on the same path', async () => {
     text: 'hello',
     visibility: 'private',
     collectionId,
-    keywords: ['q'],
+    tagIds: [],
   });
   assert.equal(state.pages.length, before);
   const page = matchPage(state, 'https://google.com/');
@@ -50,7 +50,7 @@ test('note create, update, and soft delete stay on the same path', async () => {
     text: 'hello 2',
     visibility: 'public',
     collectionId,
-    keywords: ['q'],
+    tagIds: [],
   });
   notes = state.notes.filter((note) => note.pageId === page.id && !note.deletedAt);
   assert.equal(notes[0].text, 'hello 2');
@@ -67,7 +67,7 @@ test('note create, update, and soft delete stay on the same path', async () => {
     text: 'elsewhere',
     visibility: 'private',
     collectionId,
-    keywords: [],
+    tagIds: [],
   });
   assert.equal(state.pages.length, before + 1);
   assert.equal(hostOf(matchPage(state, 'https://example.com/post').url), 'example.com');
@@ -81,7 +81,7 @@ test('note create, update, and soft delete stay on the same path', async () => {
     text: 'thread only',
     visibility: 'private',
     collectionId,
-    keywords: [],
+    tagIds: [],
   });
   const child = matchPage(state, 'https://www.chatgpt.com/c/abc');
   assert.ok(child);
@@ -213,20 +213,117 @@ test('a typed history row is stored on the page and drops out of both lists when
     url: 'https://chatgpt.com/c/abc',
     title: 'Thread',
     text: '  remembered this  ',
+    userAction: 'click',
+    contextId: null,
+    tagIds: [],
   });
   const page = matchPage(state, 'https://chatgpt.com/c/abc');
   assert.ok(page);
   const mine = state.excerpts.find((row) => row.text === 'remembered this');
   assert.ok(mine);
-  assert.equal(mine.userAction, 'manual');
+  assert.equal(mine.userAction, 'click');
+  assert.equal(mine.contextId, null);
   assert.equal(mine.scope.pageId, page.id);
   assert.equal(filterExcerpts(state, page.id, 'all').some((row) => row.id === mine.id), true);
-  assert.equal(recentExcerpts(state)[0].id, mine.id);
+  assert.equal(state.excerpts[0].id, mine.id);
   assert.equal(state.excerpts.filter((row) => !row.deletedAt).length, before + 1);
+
+  const skipped = await service.addManualExcerpt(state, {
+    url: 'https://chatgpt.com/c/abc',
+    title: 'Thread',
+    text: '   ',
+    userAction: 'read',
+    contextId: null,
+    tagIds: [],
+  });
+  assert.equal(skipped.excerpts.filter((row) => !row.deletedAt).length, before + 1);
 
   state = await service.deleteExcerpt(state, mine.id);
   assert.equal(filterExcerpts(state, page.id, 'all').some((row) => row.id === mine.id), false);
-  assert.equal(recentExcerpts(state).some((row) => row.id === mine.id), false);
+  assert.equal(state.excerpts.filter((row) => !row.deletedAt && row.id === mine.id).length, 0);
+});
+
+test('old note keywords become settings tags', () => {
+  const demo = createDemoState();
+  const { contexts: _contexts, ...withoutContexts } = demo;
+  const legacy = {
+    ...withoutContexts,
+    notes: demo.notes.map((note, index) => {
+      const { tagIds: _tagIds, ...rest } = note;
+      return { ...rest, keywords: index === 0 ? ['muse'] : ['fresh-word'] };
+    }),
+    excerpts: demo.excerpts.map((row) => {
+      const { contextId: _contextId, tagIds: _tagIds, ...rest } = row;
+      return rest;
+    }),
+    ui: {
+      ...demo.ui,
+      sections: { ...demo.ui.sections, globalHistory: true },
+    },
+  };
+  delete legacy.ui.sections.contexts;
+  delete legacy.ui.contextSort;
+  delete legacy.ui.contextsShown;
+  delete legacy.ui.contextItemsShown;
+  delete legacy.ui.openContexts;
+  const { state, changed } = normalizeState(legacy);
+  assert.equal(changed, true);
+  const muse = state.tags.find((tag) => tag.name === 'muse');
+  const fresh = state.tags.find((tag) => tag.name === 'fresh-word');
+  assert.ok(muse);
+  assert.ok(fresh);
+  assert.equal(state.notes[0].tagIds[0], muse.id);
+  assert.equal(state.notes[0].keywords, undefined);
+  assert.equal(state.notes[1].tagIds[0], fresh.id);
+  assert.equal(state.excerpts.every((row) => row.contextId === null && Array.isArray(row.tagIds)), true);
+  assert.equal(state.ui.sections.contexts, true);
+  assert.equal(state.ui.sections.globalHistory, undefined);
+  assert.ok(Array.isArray(state.contexts));
+});
+
+test('context tasks stay on the context and are not copied onto history', async () => {
+  const service = createDataService(memoryPort());
+  let state = await service.load();
+  state = await service.addManualExcerpt(state, {
+    url: 'https://chatgpt.com/',
+    title: 'ChatGPT',
+    text: 'loose',
+    userAction: 'scrap',
+    contextId: null,
+    tagIds: [],
+  });
+  const loose = state.excerpts.find((row) => row.text === 'loose');
+  assert.ok(loose);
+  assert.equal(loose.contextId, null);
+
+  state = await service.createContext(state, 'Research');
+  const context = state.contexts.find((item) => item.name === 'Research');
+  assert.ok(context);
+  const taskId = state.tasks.find((task) => !task.deletedAt)?.id;
+  assert.ok(taskId);
+  state = await service.setContextTasks(state, context.id, [taskId]);
+  assert.deepEqual(state.contexts.find((item) => item.id === context.id)?.taskIds, [taskId]);
+  assert.equal(state.excerpts.find((row) => row.id === loose.id)?.contextId, null);
+  assert.equal(state.excerpts.find((row) => row.id === loose.id)?.taskIds, undefined);
+
+  const tagId = state.tags[0].id;
+  state = await service.addManualExcerpt(state, {
+    url: 'https://chatgpt.com/',
+    title: 'ChatGPT',
+    text: 'inside',
+    userAction: 'click',
+    contextId: context.id,
+    tagIds: [tagId],
+    excerpt: 'body',
+  });
+  const inside = state.excerpts.find((row) => row.text === 'inside');
+  assert.ok(inside);
+  assert.equal(inside.contextId, context.id);
+  assert.equal(inside.userAction, 'click');
+  assert.equal(inside.excerpt, 'body');
+  assert.deepEqual(inside.tagIds, [tagId]);
+  assert.equal(inside.taskIds, undefined);
+  assert.deepEqual(state.contexts.find((item) => item.id === context.id)?.taskIds, [taskId]);
 });
 
 test('panel reads the page address and title baked into its iframe query', () => {

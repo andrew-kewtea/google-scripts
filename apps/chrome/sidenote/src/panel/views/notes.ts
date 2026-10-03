@@ -47,7 +47,11 @@ function noteRow(state: SidenoteState, session: Session, note: Note): string {
       ? `<span class="faint">(edited ${esc(formatWhen(note.updatedAt, state.settings.timeZone))})</span>`
       : '';
   const collection = state.collections.find((item) => item.id === note.collectionId);
-  const keywords = note.keywords.map((word) => `<span>#${esc(word)}</span>`).join('');
+  const keywords = note.tagIds
+    .map((id) => state.tags.find((tag) => tag.id === id && !tag.deletedAt))
+    .filter((tag) => tag)
+    .map((tag) => `<span>#${esc(tag!.name)}</span>`)
+    .join('');
   const menu = visibilityMenu(state, session, note.id, note.visibility);
   return `<article class="note">
     <div class="meta">
@@ -68,11 +72,18 @@ function noteEditor(state: SidenoteState, session: Session, note?: Note): string
         `<option value="${esc(item.id)}" ${item.id === session.noteCollectionId ? 'selected' : ''}>${esc(item.name)}</option>`,
     )
     .join('');
-  const chips = session.noteKeywords
+  const tags = state.tags.filter((tag) => !tag.deletedAt);
+  const chips = session.noteTagIds
+    .map((id) => tags.find((tag) => tag.id === id))
+    .filter((tag) => tag)
     .map(
-      (word) =>
-        `<span class="chip chip-dark">#${esc(word)}<button type="button" data-action="remove-keyword" data-word="${esc(word)}" aria-label="Remove ${esc(word)}">${icon('close')}</button></span>`,
+      (tag) =>
+        `<span class="chip chip-dark">#${esc(tag!.name)}<button type="button" data-action="remove-note-tag" data-tag="${esc(tag!.id)}" aria-label="Remove ${esc(tag!.name)}">${icon('close')}</button></span>`,
     )
+    .join('');
+  const tagOptions = tags
+    .filter((tag) => !session.noteTagIds.includes(tag.id))
+    .map((tag) => `<option value="${esc(tag.id)}">#${esc(tag.name)}</option>`)
     .join('');
   const menu = visibilityMenu(state, session, note?.id ?? 'new', session.noteVisibility);
   return `<article class="note">
@@ -80,7 +91,7 @@ function noteEditor(state: SidenoteState, session: Session, note?: Note): string
     <textarea id="note-text" placeholder="Jot down on the side…">${esc(session.noteText)}</textarea>
     <div class="edit-line">
       <select id="note-collection" aria-label="Collection">${options}</select>
-      <input id="note-kw" value="${esc(session.noteKw)}" placeholder="Enter to create keyword">
+      <select id="note-tag" aria-label="Add tag"><option value="">Add tag</option>${tagOptions}</select>
     </div>
     <div class="chips">${chips}</div>
     <div class="btn-row">

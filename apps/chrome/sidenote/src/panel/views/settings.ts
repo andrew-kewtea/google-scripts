@@ -89,7 +89,8 @@ function tagsBlock(state: SidenoteState, session: Session): string {
   const rows = tags
     .map((tag) => {
       const count =
-        state.notes.filter((note) => !note.deletedAt && note.keywords.includes(tag.name)).length +
+        state.notes.filter((note) => !note.deletedAt && note.tagIds.includes(tag.id)).length +
+        state.excerpts.filter((row) => !row.deletedAt && row.tagIds.includes(tag.id)).length +
         state.pages.filter((page) => page.tags.includes(tag.name)).length;
       return `<div class="set-row">
         <span>#${esc(tag.name)}</span>

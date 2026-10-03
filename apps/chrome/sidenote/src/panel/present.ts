@@ -1,4 +1,13 @@
-import type { Collection, Note, PageExcerpt, Project, SidenoteState, Task, UserAction } from '../shared/types.js';
+import type {
+  Collection,
+  ContextThread,
+  Note,
+  PageExcerpt,
+  Project,
+  SidenoteState,
+  Task,
+  UserAction,
+} from '../shared/types.js';
 
 export function liveNotes(state: SidenoteState, pageId: string | undefined): Note[] {
   if (!pageId) return [];
@@ -14,13 +23,35 @@ export function liveExcerpts(rows: PageExcerpt[], shown: number): { items: PageE
   return { items: sorted.slice(0, shown), more: sorted.length > shown };
 }
 
-export const GLOBAL_HISTORY_LIMIT = 100;
+export const CONTEXT_PAGE = 20;
 
-export function recentExcerpts(state: SidenoteState, limit = GLOBAL_HISTORY_LIMIT): PageExcerpt[] {
-  return state.excerpts
-    .filter((row) => !row.deletedAt)
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, limit);
+export type ContextGroup = {
+  id: string;
+  name: string;
+  context: ContextThread | null;
+  items: PageExcerpt[];
+};
+
+export function contextGroups(state: SidenoteState): ContextGroup[] {
+  const live = state.excerpts.filter((row) => !row.deletedAt);
+  const contexts = state.contexts.filter((context) => !context.deletedAt);
+  const itemsFor = (id: string | null) =>
+    live.filter((row) => (row.contextId ?? null) === id).sort((a, b) => b.createdAt - a.createdAt);
+  const sorted = [...contexts].sort((a, b) => {
+    if (state.ui.contextSort === 'size') return itemsFor(b.id).length - itemsFor(a.id).length || b.updatedAt - a.updatedAt;
+    return b.updatedAt - a.updatedAt;
+  });
+  const groups: ContextGroup[] = sorted.map((context) => ({
+    id: context.id,
+    name: context.name,
+    context,
+    items: itemsFor(context.id),
+  }));
+  const loose = itemsFor(null);
+  if (loose.length) {
+    groups.push({ id: 'uncategorized', name: 'Uncategorized', context: null, items: loose });
+  }
+  return groups;
 }
 
 export function noteCount(state: SidenoteState, pageId: string): number {
@@ -86,13 +117,25 @@ export function actionIcon(action: UserAction): string {
       return 'link';
     case 'form':
       return 'keyboard';
+    case 'click':
+      return 'link';
+    case 'scrap':
+      return 'filter_list';
     case 'copy':
     case 'select':
       return 'ink_highlighter';
     case 'manual':
-      return 'edit_note';
+      return 'keyboard';
   }
 }
+
+export function actionLabel(action: UserAction): string {
+  if (action === 'select') return 'Highlight';
+  if (action === 'manual') return 'Manual';
+  return action.charAt(0).toUpperCase() + action.slice(1);
+}
+
+export const ENTRY_ACTIONS: UserAction[] = ['read', 'link', 'form', 'click', 'scrap', 'copy', 'select'];
 
 export function filterIcon(filter: string): string {
   switch (filter) {

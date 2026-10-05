@@ -1,3 +1,4 @@
+import { tagSelectOptions } from '../../lib/tags.js';
 import { matchPage } from '../../shared/scope.js';
 import type { Note, SidenoteState, Visibility } from '../../shared/types.js';
 import { esc, formatWhen, icon, visIcon, visLabel } from '../format.js';
@@ -66,17 +67,19 @@ function noteEditor(state: SidenoteState, session: Session, note?: Note): string
   ].join('');
   const tags = state.tags.filter((tag) => !tag.deletedAt);
   const chips = session.noteTagIds
-    .map((id) => tags.find((tag) => tag.id === id))
+    .map((id) => tags.find((tag) => tag.id === id) ?? session.tagSuggestions.find((tag) => tag.id === id))
     .filter((tag) => tag)
     .map(
       (tag) =>
         `<span class="chip chip-dark">#${esc(tag!.name)}<button type="button" data-action="remove-note-tag" data-tag="${esc(tag!.id)}" aria-label="Remove ${esc(tag!.name)}">${icon('close')}</button></span>`,
     )
     .join('');
-  const tagOptions = tags
-    .filter((tag) => !session.noteTagIds.includes(tag.id))
+  const tagOptions = tagSelectOptions(tags, session.tagSuggestions, session.noteTagIds, session.signedIn)
     .map((tag) => `<option value="${esc(tag.id)}">#${esc(tag.name)}</option>`)
     .join('');
+  const newTag = session.signedIn
+    ? '<input id="note-new-tag" data-new-tag="note" placeholder="New tag" aria-label="New tag">'
+    : '';
   const menu = visibilityMenu(state, session, note?.id ?? 'new', session.noteVisibility);
   const when = note ? formatWhen(note.updatedAt, state.settings.timeZone) : 'New';
   return `<article class="note">
@@ -85,6 +88,7 @@ function noteEditor(state: SidenoteState, session: Session, note?: Note): string
     <div class="edit-line">
       <select id="note-collection" aria-label="Collection">${options}</select>
       <select id="note-tag" aria-label="Add tag"><option value="">Add tag</option>${tagOptions}</select>
+      ${newTag}
       ${chips}
     </div>
     <div class="btn-row">

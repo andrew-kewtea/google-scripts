@@ -1,7 +1,7 @@
 Status: active  
 Canonical: yes  
 Owner: jungh  
-Last reviewed: 2026-10-02
+Last reviewed: 2026-10-05
 
 # Product requirements
 
@@ -13,7 +13,7 @@ One GitHub repo, many publish targets. It is not a hosted multi-tenant service.
 | Product | Path | Runtime | Status |
 | --- | --- | --- | --- |
 | gsheet_sync | `apps/gas/bound/gsheet_sync` | Spreadsheet-bound Apps Script, plain JavaScript | Active. Fast2 notes / posts / users Pull and Push |
-| sidenote | `apps/chrome/sidenote` | Chrome extension, Manifest V3 in-page overlay | Local two-column panel. Fast2 sync later |
+| sidenote | `apps/chrome/sidenote` | Chrome extension, Manifest V3 in-page overlay | Local cache in `chrome.storage.local`, signed-in sync to Fast2 |
 | ts_gsheet_sync | removed from the working tree | TypeScript GAS prototype | Retired. See `decisions/ADR-2026-10-01-retire-ts-gsheet-sync.md` |
 
 ## Shared needs

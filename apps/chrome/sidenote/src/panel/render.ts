@@ -35,9 +35,16 @@ export function renderPanel(state: SidenoteState, session: Session): string {
       ${historySection(state, session)}
     </div>
     <div class="col2-wrap${expanded ? ' open' : ''}">${second}</div>
+    ${session.reauth ? reauthBanner() : ''}
     ${session.notice ? noticeBanner(session.notice) : ''}
     ${excerptModal(session)}
     ${contextTaskModal(state, session)}
+  </div>`;
+}
+
+function reauthBanner(): string {
+  return `<div class="save-banner" role="status">
+    <p>Your session expired. <button type="button" class="text-link" data-action="open-account">Sign in again</button></p>
   </div>`;
 }
 

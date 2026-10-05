@@ -1,6 +1,6 @@
 Status: active  
 Owner: jungh  
-Last reviewed: 2026-10-02  
+Last reviewed: 2026-10-05  
 Related code: `apps/chrome/sidenote`
 
 # Chrome extension runtime
@@ -23,19 +23,24 @@ Browser ESM imports in TypeScript source must end in `.js`, because that is the 
 
 | Permission | Why |
 | --- | --- |
-| `storage` | `chrome.storage.local` key `sidenote.state` |
+| `storage` | `chrome.storage.local` keys `sidenote.state`, `sidenote.auth`, `sidenote.outbox` |
 | `activeTab`, `scripting` | Inject the host on the tab where the user clicked the action, and read that tab's URL |
+| `identity` | Google sign-in via `chrome.identity.launchWebAuthFlow`. Redirect is `https://<extension-id>.chromiumapp.org/` |
+| `alarms` | Wake the service worker every 10 minutes to flush the outbox and pull |
+| `host_permissions` | `http://*/*` and `https://*/*` so the worker can call the API and read the active page |
 | `web_accessible_resources` | The page iframe loads `panel/index.html` and the bundled fonts |
 
-`activeTab` lasts for the tab where the user invoked the extension. It is not a permanent read of every site. `https://api.kchloe.co/*` is not in the manifest until the first real request.
+`activeTab` lasts for the tab where the user invoked the extension. It is not a permanent read of every site. The manifest `key` keeps the unpacked extension id stable so the Google redirect URI can be registered.
 
 ## Data
 
 | Store | Contents |
 | --- | --- |
-| `chrome.storage.local` | Pages, notes, `page_excerpt` rows, collections, tasks, settings, UI state. Key `sidenote.state` |
-| Fast2 `https://api.kchloe.co/api/v1` | Later. Design: `documents/specs/sprints/261001_sidenote_v1/background_sync.md` |
+| `sidenote.state` | Pages, notes, history rows, collections, contexts, tasks, projects, tags, groups, settings, UI |
+| `sidenote.auth` | Access token, refresh token, email, user id, journal uname. Not posted to the host page |
+| `sidenote.outbox` | Signed-in creates, updates, and deletes waiting for the worker |
+| Fast2 `https://api.kchloe.co/api/v1` | `urls`, `url_abouts`, `url_match_rules`, `notes`, `note_url_refs`, journal collections, `contexts`, `web_histories`, `tasks`, `projects`, tags, groups, preferences. Design: `documents/specs/sprints/261001_sidenote_v1/api_connect.md` |
 
 The panel's data service takes a storage port. Tests use a memory port. The iframe uses the Chrome port. Do not write the page's `window.localStorage`.
 
-Do not commit tokens, and do not put user page text into the git repo. The seed in `src/shared/demoData.ts` is fixture copy, not a capture.
+Do not commit tokens, and do not put user page text into the git repo. There is no demo seed. Empty storage stays empty. A local JSON payload at or above 9MB rejects new rows.

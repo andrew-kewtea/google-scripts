@@ -1,34 +1,29 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createDataService, memoryPort, normalizeState, tagUsage } from '../dist/panel/dataService.js';
+import { createDataService, createEmptyState, memoryPort, normalizeState, QuotaError, tagUsage } from '../dist/panel/dataService.js';
 import { pageContextFromSearch } from '../dist/panel/session.js';
-import { createDemoState } from '../dist/shared/demoData.js';
+import { CREATE_BLOCK_BYTES } from '../dist/shared/types.js';
 import { ancestorPaths, buildPageTree, visibleTreeRows } from '../dist/shared/pageTree.js';
 import { filterExcerpts, hostOf, matchPage } from '../dist/shared/scope.js';
 
-test('empty storage is seeded once with five pages', async () => {
+test('empty storage starts empty and is not seeded again', async () => {
   const service = createDataService(memoryPort());
   const first = await service.load();
-  assert.equal(first.seeded, true);
-  assert.equal(first.pages.length, 5);
-  assert.equal(first.notes.filter((note) => !note.deletedAt).length, 2);
-  assert.equal(first.excerpts.filter((row) => !row.deletedAt).length, 2);
-  assert.equal(first.collections.filter((row) => !row.deletedAt).length, 2);
-  assert.equal(first.tasks.filter((row) => !row.deletedAt).length, 2);
+  assert.equal(first.seeded, false);
+  assert.equal(first.pages.length, 0);
+  assert.equal(first.notes.length, 0);
+  assert.equal(first.excerpts.length, 0);
 
   const second = await service.load();
-  assert.deepEqual(
-    second.pages.map((page) => page.id),
-    first.pages.map((page) => page.id),
-  );
-  assert.equal(second.notes.length, first.notes.length);
+  assert.equal(second.pages.length, 0);
+  assert.equal(second.notes.length, 0);
 });
 
 test('note create, update, and soft delete stay on the same path', async () => {
   const service = createDataService(memoryPort());
   let state = await service.load();
-  const before = state.pages.length;
+  state = await service.createCollection(state, 'Inbox');
   const collectionId = state.collections[0].id;
 
   state = await service.createNote(state, {
@@ -39,7 +34,7 @@ test('note create, update, and soft delete stay on the same path', async () => {
     collectionId,
     tagIds: [],
   });
-  assert.equal(state.pages.length, before);
+  assert.equal(state.pages.length, 1);
   const page = matchPage(state, 'https://google.com/');
   assert.ok(page);
   let notes = state.notes.filter((note) => note.pageId === page.id && !note.deletedAt);
@@ -69,12 +64,21 @@ test('note create, update, and soft delete stay on the same path', async () => {
     collectionId,
     tagIds: [],
   });
-  assert.equal(state.pages.length, before + 1);
+  assert.equal(state.pages.length, 2);
   assert.equal(hostOf(matchPage(state, 'https://example.com/post').url), 'example.com');
 
   const root = matchPage(state, 'https://chatgpt.com/');
-  assert.ok(root);
-  const rootCount = state.notes.filter((note) => note.pageId === root.id && !note.deletedAt).length;
+  assert.equal(root, undefined);
+  state = await service.createNote(state, {
+    url: 'https://chatgpt.com/',
+    title: 'ChatGPT',
+    text: 'home',
+    visibility: 'private',
+    collectionId,
+    tagIds: [],
+  });
+  const home = matchPage(state, 'https://chatgpt.com/');
+  assert.ok(home);
   state = await service.createNote(state, {
     url: 'https://chatgpt.com/c/abc',
     title: 'Thread',
@@ -85,18 +89,26 @@ test('note create, update, and soft delete stay on the same path', async () => {
   });
   const child = matchPage(state, 'https://www.chatgpt.com/c/abc');
   assert.ok(child);
-  assert.notEqual(child.id, root.id);
-  assert.equal(matchPage(state, 'https://chatgpt.com/')?.id, root.id);
-  assert.equal(state.notes.filter((note) => note.pageId === root.id && !note.deletedAt).length, rootCount);
+  assert.notEqual(child.id, home.id);
+  assert.equal(matchPage(state, 'https://chatgpt.com/')?.id, home.id);
+  assert.equal(state.notes.filter((note) => note.pageId === home.id && !note.deletedAt).length, 1);
   assert.equal(state.notes.find((note) => note.pageId === child.id && !note.deletedAt)?.text, 'thread only');
 });
 
 test('page excerpts filter by action and highlights are highlight rows', async () => {
   const service = createDataService(memoryPort());
   let state = await service.load();
+  state = await service.createNote(state, {
+    url: 'https://www.bbc.com/future/article/20260930-metas-new-ai-is-about-to-break-the-internet',
+    title: 'Muse',
+    text: 'page',
+    visibility: 'private',
+    collectionId: null,
+    tagIds: [],
+  });
   const bbc = matchPage(
     state,
-    'https://www.bbc.com/future/article/20260930-metas-new-ai-is-about-to-break-the-internet',
+    'https://www.bbc.com/future/article/20260930-metas-new-ai-is-about-to-break-the-internet?utm=1',
   );
   assert.ok(bbc);
   assert.ok(filterExcerpts(state, bbc.id, 'read').every((row) => row.userAction === 'read'));
@@ -126,7 +138,24 @@ test('page excerpts filter by action and highlights are highlight rows', async (
 
 test('a page matches its own path, including www and query strings', async () => {
   const service = createDataService(memoryPort());
-  const state = await service.load();
+  let state = await service.load();
+  const pages = [
+    ['https://www.google.com/', 'Google'],
+    ['https://drive.google.com/', 'Drive'],
+    ['https://mail.google.com/', 'Gmail'],
+    ['https://chatgpt.com/', 'ChatGPT'],
+    ['https://www.bbc.com/future/article/20260930-metas-new-ai-is-about-to-break-the-internet', 'Muse'],
+  ];
+  for (const [url, title] of pages) {
+    state = await service.createNote(state, {
+      url,
+      title,
+      text: title,
+      visibility: 'private',
+      collectionId: null,
+      tagIds: [],
+    });
+  }
   const samePath = [
     ['https://www.google.com/?q=a', 'google.com'],
     ['https://drive.google.com/', 'drive.google.com'],
@@ -192,13 +221,18 @@ test('about tree is the current host path, collapsed to the domain', () => {
 test('soft-deleted excerpts drop out of the history filter', async () => {
   const service = createDataService(memoryPort());
   let state = await service.load();
-  const bbc = matchPage(
-    state,
-    'https://www.bbc.com/future/article/20260930-metas-new-ai-is-about-to-break-the-internet',
-  );
+  state = await service.addManualExcerpt(state, {
+    url: 'https://www.bbc.com/future/article/20260930-metas-new-ai-is-about-to-break-the-internet',
+    title: 'Muse',
+    text: 'highlighted',
+    userAction: 'highlight',
+    contextId: null,
+    tagIds: [],
+  });
+  const bbc = matchPage(state, 'https://www.bbc.com/future/article/20260930-metas-new-ai-is-about-to-break-the-internet?x=1');
   assert.ok(bbc);
   const before = filterExcerpts(state, bbc.id, 'highlights');
-  assert.ok(before.length >= 1);
+  assert.equal(before.length, 1);
   const target = before[0];
   state = await service.deleteExcerpt(state, target.id);
   const stored = state.excerpts.find((row) => row.id === target.id);
@@ -248,18 +282,41 @@ test('a typed history row is stored on the page and drops out of both lists when
 });
 
 test('old note keywords become settings tags', () => {
-  const demo = createDemoState();
-  const { contexts: _contexts, ...withoutContexts } = demo;
+  const demo = createEmptyState();
   const legacy = {
-    ...withoutContexts,
-    notes: demo.notes.map((note, index) => {
-      const { tagIds: _tagIds, ...rest } = note;
-      return { ...rest, keywords: index === 0 ? ['muse'] : ['fresh-word'] };
-    }),
-    excerpts: demo.excerpts.map((row) => {
-      const { contextId: _contextId, tagIds: _tagIds, ...rest } = row;
-      return rest;
-    }),
+    ...demo,
+    notes: [
+      {
+        id: 'n1',
+        pageId: 'p1',
+        text: 'one',
+        visibility: 'private',
+        collectionId: null,
+        keywords: ['muse'],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'n2',
+        pageId: 'p1',
+        text: 'two',
+        visibility: 'private',
+        collectionId: null,
+        keywords: ['fresh-word'],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ],
+    excerpts: [
+      {
+        id: 'e1',
+        scope: { url: 'https://example.com/', pageId: 'p1', key: 'example.com' },
+        userAction: 'read',
+        text: 'seen',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ],
     ui: {
       ...demo.ui,
       sections: { ...demo.ui.sections, globalHistory: true },
@@ -303,14 +360,16 @@ test('context tasks stay on the context and are not copied onto history', async 
   state = await service.createContext(state, 'Research');
   const context = state.contexts.find((item) => item.name === 'Research');
   assert.ok(context);
+  state = await service.createTask(state, { title: 'Follow up', projectId: null });
   const taskId = state.tasks.find((task) => !task.deletedAt)?.id;
   assert.ok(taskId);
+  state = await service.createTag(state, 'muse');
+  const tagId = state.tags[0].id;
   state = await service.setContextTasks(state, context.id, [taskId]);
   assert.deepEqual(state.contexts.find((item) => item.id === context.id)?.taskIds, [taskId]);
   assert.equal(state.excerpts.find((row) => row.id === loose.id)?.contextId, null);
   assert.equal(state.excerpts.find((row) => row.id === loose.id)?.taskIds, undefined);
 
-  const tagId = state.tags[0].id;
   state = await service.addManualExcerpt(state, {
     url: 'https://chatgpt.com/',
     title: 'ChatGPT',
@@ -331,13 +390,34 @@ test('context tasks stay on the context and are not copied onto history', async 
 });
 
 test('old history kinds collapse, unused tags delete, and a note can stay uncategorized', async () => {
-  const demo = createDemoState();
-  const sample = demo.excerpts[0];
+  const demo = createEmptyState();
+  const sample = {
+    id: 'e1',
+    scope: { url: 'https://example.com/a', pageId: 'p1', key: 'example.com/a' },
+    userAction: 'read',
+    text: 'seen',
+    contextId: null,
+    tagIds: [],
+    createdAt: 1,
+    updatedAt: 1,
+  };
   demo.excerpts = [
-    ...demo.excerpts,
+    sample,
     { ...sample, id: 'old-copy', userAction: 'copy', text: 'copied' },
     { ...sample, id: 'old-manual', userAction: 'manual', text: 'typed by hand' },
     { ...sample, id: 'old-click', userAction: 'click', text: 'left via link' },
+  ];
+  demo.notes = [
+    {
+      id: 'n-muse',
+      pageId: 'p1',
+      text: 'tagged',
+      visibility: 'private',
+      collectionId: null,
+      keywords: ['muse'],
+      createdAt: 1,
+      updatedAt: 1,
+    },
   ];
   const normalized = normalizeState(demo);
   assert.equal(normalized.changed, true);
@@ -369,6 +449,50 @@ test('old history kinds collapse, unused tags delete, and a note can stay uncate
     tagIds: [],
   });
   assert.equal(state.notes.find((note) => note.text === 'loose note')?.collectionId, null);
+});
+
+test('creates stop once local storage reaches 9MB', async () => {
+  const service = createDataService(memoryPort());
+  let state = await service.load();
+  state = await service.createNote(state, {
+    url: 'https://example.com/small',
+    title: 'Small',
+    text: 'fits',
+    visibility: 'private',
+    collectionId: null,
+    tagIds: [],
+  });
+  assert.equal(state.notes.filter((note) => !note.deletedAt).length, 1);
+
+  const full = createEmptyState();
+  full.notes = [
+    {
+      id: 'huge',
+      pageId: 'p',
+      text: 'x'.repeat(CREATE_BLOCK_BYTES),
+      visibility: 'private',
+      collectionId: null,
+      tagIds: [],
+      createdAt: 1,
+      updatedAt: 1,
+    },
+  ];
+  const blocked = createDataService(memoryPort(full));
+  const loaded = await blocked.load();
+  await assert.rejects(
+    () =>
+      blocked.createNote(loaded, {
+        url: 'https://example.com/more',
+        title: 'More',
+        text: 'nope',
+        visibility: 'private',
+        collectionId: null,
+        tagIds: [],
+      }),
+    QuotaError,
+  );
+  const again = await blocked.load();
+  assert.equal(again.notes.some((note) => note.text === 'nope'), false);
 });
 
 test('panel reads the page address and title baked into its iframe query', () => {

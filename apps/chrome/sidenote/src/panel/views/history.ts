@@ -1,3 +1,4 @@
+import { tagSelectOptions } from '../../lib/tags.js';
 import { filterExcerpts, hostOf, matchPage } from '../../shared/scope.js';
 import type { HistoryFilter, PageExcerpt, SidenoteState, UserAction } from '../../shared/types.js';
 import { clipText, esc, formatDay, formatWhen, icon, rowActs } from '../format.js';
@@ -95,7 +96,7 @@ function historyDraft(state: SidenoteState, session: Session): string {
     </div>
     <div class="edit-line">
       ${contextSelect(state, 'history-context', session.historyContextId)}
-      ${tagControls(state, session.historyTagIds, 'history')}
+      ${tagControls(state, session, session.historyTagIds, 'history')}
     </div>
     <div class="btn-row">
       <button type="button" class="btn" data-action="save-history">Save</button>
@@ -115,7 +116,7 @@ function excerptEditor(state: SidenoteState, session: Session, row: PageExcerpt)
     </div>
     <div class="edit-line">
       ${contextSelect(state, 'history-edit-context', session.historyEditContextId)}
-      ${tagControls(state, session.historyEditTagIds, 'edit')}
+      ${tagControls(state, session, session.historyEditTagIds, 'edit')}
     </div>
     <div class="btn-row">
       <button type="button" class="btn" data-action="save-history-edit" data-id="${esc(row.id)}">Save</button>
@@ -148,21 +149,23 @@ function contextSelect(state: SidenoteState, id: string, current: string): strin
   return `<select id="${id}" aria-label="Context">${options}</select>`;
 }
 
-function tagControls(state: SidenoteState, selected: string[], scope: 'history' | 'edit'): string {
+function tagControls(state: SidenoteState, session: Session, selected: string[], scope: 'history' | 'edit'): string {
   const tags = state.tags.filter((tag) => !tag.deletedAt);
   const chips = selected
-    .map((id) => tags.find((tag) => tag.id === id))
+    .map((id) => tags.find((tag) => tag.id === id) ?? session.tagSuggestions.find((tag) => tag.id === id))
     .filter((tag) => tag)
     .map(
       (tag) =>
         `<span class="chip chip-dark">#${esc(tag!.name)}<button type="button" data-action="remove-history-tag" data-scope="${scope}" data-tag="${esc(tag!.id)}" aria-label="Remove ${esc(tag!.name)}">${icon('close')}</button></span>`,
     )
     .join('');
-  const options = tags
-    .filter((tag) => !selected.includes(tag.id))
+  const options = tagSelectOptions(tags, session.tagSuggestions, selected, session.signedIn)
     .map((tag) => `<option value="${esc(tag.id)}">#${esc(tag.name)}</option>`)
     .join('');
-  return `<select id="${scope}-tag" aria-label="Add tag"><option value="">Add tag</option>${options}</select>${chips}`;
+  const fresh = session.signedIn
+    ? `<input id="${scope}-new-tag" data-new-tag="${scope}" placeholder="New tag" aria-label="New tag">`
+    : '';
+  return `<select id="${scope}-tag" aria-label="Add tag"><option value="">Add tag</option>${options}</select>${fresh}${chips}`;
 }
 
 function excerptView(state: SidenoteState, row: PageExcerpt): string {

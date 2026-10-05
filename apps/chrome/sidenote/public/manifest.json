@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm8DaHufJ2TKWcYMZT+7J6sjYyHHRRTW4P14meE6fNoKbz64q7mKfmonyDBs+4ZbaYCzf3H3HhdNZG8BP9+ZEnPH6DhKlWdwjm48dzBl1pICcd5nbsloihw20hWn4TrOfc7MFdNz6kbw1wIdMPO6g7hi2ktBAvW3Y9mTGk4Rr4qRbVibQ2oU3bl9Wxe8JlTMqRGqAczv1VSEIFR8DQSal/MFEXO7DBEvnEpuU1x5nlPn0kOwhtx0CZw3/tKE+uBPYJU5RIUyUmcollSqN/Z2l9qM1j16pTUZsqktbowUZ3vr/Snu7xckICk/tiywxrj1gGudR8Pxyp1pdVNOPM2lO3wIDAQAB",
   "name": "sidenote",
   "version": "0.2.0",
-  "description": "Jot a note beside the page. Saved on this device until sign-in exists.",
-  "permissions": ["storage", "scripting", "activeTab"],
+  "description": "Jot a note beside the page. Local until you sign in, then synced to kchloe.",
+  "permissions": ["storage", "scripting", "activeTab", "identity", "alarms"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background/serviceWorker.js",

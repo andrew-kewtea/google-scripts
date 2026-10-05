@@ -1,25 +1,25 @@
-import { createDemoState } from '../shared/demoData.js';
 import { hostOf, matchPage, scopeKey } from '../shared/scope.js';
-import type {
-  Collection,
-  ContextThread,
-  DisplayLimits,
-  ExcerptInput,
-  Note,
-  NoteCreate,
-  NoteInput,
-  PageExcerpt,
-  PageRecord,
-  Project,
-  Settings,
-  SidenoteState,
-  TagRecord,
-  Task,
-  TaskStatus,
-  UiState,
-  UserAction,
-  UserGroup,
-  Visibility,
+import {
+  CREATE_BLOCK_BYTES,
+  type Collection,
+  type ContextThread,
+  type DisplayLimits,
+  type ExcerptInput,
+  type Note,
+  type NoteCreate,
+  type NoteInput,
+  type PageExcerpt,
+  type PageRecord,
+  type Project,
+  type Settings,
+  type SidenoteState,
+  type TagRecord,
+  type Task,
+  type TaskStatus,
+  type UiState,
+  type UserAction,
+  type UserGroup,
+  type Visibility,
 } from '../shared/types.js';
 
 export type StoragePort = {
@@ -100,30 +100,109 @@ export function memoryPort(initial: SidenoteState | null = null): StoragePort {
   };
 }
 
+export class QuotaError extends Error {
+  constructor() {
+    super('This device is full. Delete something before adding more.');
+    this.name = 'QuotaError';
+  }
+}
+
 export function stateBytes(state: SidenoteState): number {
   return new TextEncoder().encode(JSON.stringify(state)).length;
 }
 
-export function createDataService(port: StoragePort): DataService {
+export function createBlocked(state: SidenoteState): boolean {
+  return stateBytes(state) >= CREATE_BLOCK_BYTES;
+}
+
+export function createEmptyState(): SidenoteState {
+  return {
+    seeded: false,
+    pages: [],
+    notes: [],
+    excerpts: [],
+    collections: [],
+    contexts: [],
+    projects: [],
+    tasks: [],
+    tags: [],
+    groups: [],
+    urlRules: [],
+    settings: {
+      language: 'en',
+      timeZone: 'Asia/Seoul',
+      theme: 'system',
+      display: { collections: 10, notesPerCollection: 10, tasks: 10 },
+      accountEmail: '',
+    },
+    ui: {
+      expanded: false,
+      sections: {
+        about: true,
+        notes: true,
+        history: true,
+        collections: true,
+        contexts: true,
+        tasks: true,
+        settings: true,
+      },
+      noteSort: 'time',
+      historyFilter: 'all',
+      collectionSort: 'recency',
+      taskSort: 'recency',
+      contextSort: 'recency',
+      historyShown: 10,
+      collectionsShown: 10,
+      tasksShown: 10,
+      contextsShown: 10,
+      contextItemsShown: {},
+      collectionItemsShown: {},
+      taskItemsShown: {},
+      openCollections: [],
+      openContexts: [],
+      openProjects: [],
+      openSettings: ['account'],
+      treeOpen: [],
+    },
+  };
+}
+
+export function createDataService(
+  port: StoragePort,
+  hooks?: { onCommitted?: (before: SidenoteState, after: SidenoteState) => void },
+): DataService {
+  let tracking = false;
+
   async function commit(next: SidenoteState): Promise<SidenoteState> {
+    const before = tracking ? await port.get() : null;
     await port.set(next);
+    if (tracking && before) hooks?.onCommitted?.(before, next);
     return next;
+  }
+
+  function room(state: SidenoteState): void {
+    if (createBlocked(state)) throw new QuotaError();
   }
 
   return {
     async load() {
       const existing = await port.get();
-      if (!existing) return commit(createDemoState());
+      if (!existing) {
+        const created = await commit(createEmptyState());
+        tracking = true;
+        return created;
+      }
       const normalized = normalizeState(existing);
-      if (normalized.changed) return commit(normalized.state);
-      return normalized.state;
+      const ready = normalized.changed ? await commit(normalized.state) : normalized.state;
+      tracking = true;
+      return ready;
     },
 
     async saveAbout(state, url, title, tags) {
       const next = withPage(state, url, title);
       const page = matchPage(next, url);
       if (!page) return commit(next);
-      return commit(replacePage(next, page.id, { title: title.trim() || page.title, tags, updatedAt: Date.now() }));
+      return commit(replacePage(next, page.id, { title: title.trim() || page.title, tagIds: tags, updatedAt: Date.now() }));
     },
 
     async savePatterns(state, url, title, patterns, ignoreQuery) {
@@ -136,7 +215,8 @@ export function createDataService(port: StoragePort): DataService {
 
     async createNote(state, input) {
       const text = input.text.trim();
-      if (!text) return commit(state);
+      if (!text) return state;
+      room(state);
       const next = withPage(state, input.url, input.title);
       const page = matchPage(next, input.url);
       if (!page) return commit(next);
@@ -184,7 +264,8 @@ export function createDataService(port: StoragePort): DataService {
 
     async addExcerpt(state, input) {
       const page = state.pages.find((item) => item.id === input.pageId);
-      if (!page) return commit(state);
+      if (!page) return state;
+      room(state);
       const now = Date.now();
       const row: PageExcerpt = {
         id: newId(),
@@ -203,7 +284,8 @@ export function createDataService(port: StoragePort): DataService {
 
     async addManualExcerpt(state, input) {
       const text = input.text.trim();
-      if (!text || !input.url || !ENTRY_ACTIONS.includes(input.userAction)) return commit(state);
+      if (!text || !input.url || !ENTRY_ACTIONS.includes(input.userAction)) return state;
+      room(state);
       const next = withPage(state, input.url, input.title);
       const page = matchPage(next, input.url);
       if (!page) return commit(next);
@@ -269,7 +351,8 @@ export function createDataService(port: StoragePort): DataService {
 
     async createContext(state, name) {
       const trimmed = name.trim();
-      if (!trimmed) return commit(state);
+      if (!trimmed) return state;
+      room(state);
       const row: ContextThread = {
         id: newId(),
         name: trimmed,
@@ -292,7 +375,8 @@ export function createDataService(port: StoragePort): DataService {
 
     async createCollection(state, name) {
       const trimmed = name.trim();
-      if (!trimmed) return commit(state);
+      if (!trimmed) return state;
+      room(state);
       const row: Collection = {
         id: newId(),
         name: trimmed,
@@ -304,7 +388,8 @@ export function createDataService(port: StoragePort): DataService {
 
     async createTask(state, input) {
       const title = input.title.trim();
-      if (!title) return commit(state);
+      if (!title) return state;
+      room(state);
       const now = Date.now();
       const row: Task = {
         id: newId(),
@@ -349,10 +434,13 @@ export function createDataService(port: StoragePort): DataService {
     },
 
     async createProject(state, name) {
+      const trimmed = name.trim();
+      if (!trimmed) return state;
+      room(state);
       const now = Date.now();
       const row: Project = {
         id: newId(),
-        name: name.trim() || 'Untitled',
+        name: trimmed,
         color: PALETTE[state.projects.filter((item) => !item.deletedAt).length % PALETTE.length] ?? PALETTE[0],
         order: state.projects.length,
         updatedAt: now,
@@ -405,10 +493,11 @@ export function createDataService(port: StoragePort): DataService {
 
     async createTag(state, name) {
       const trimmed = name.trim().replace(/^#/, '');
-      if (!trimmed) return commit(state);
+      if (!trimmed) return state;
       if (state.tags.some((tag) => !tag.deletedAt && tag.name.toLowerCase() === trimmed.toLowerCase())) {
-        return commit(state);
+        return state;
       }
+      room(state);
       const row: TagRecord = {
         id: newId(),
         name: trimmed,
@@ -436,9 +525,10 @@ export function createDataService(port: StoragePort): DataService {
 
     async createGroup(state, name) {
       const active = state.groups.filter((group) => !group.deletedAt);
-      if (active.length >= 3) return commit(state);
+      if (active.length >= 3) return state;
       const trimmed = name.trim();
-      if (!trimmed) return commit(state);
+      if (!trimmed) return state;
+      room(state);
       const handle = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 16) || 'group';
       const row: UserGroup = {
         id: newId(),
@@ -479,7 +569,7 @@ function withPage(state: SidenoteState, url: string, title: string): SidenoteSta
     url,
     patterns: [],
     ignoreQuery: true,
-    tags: [],
+    tagIds: [],
     updatedAt: Date.now(),
   };
   return { ...state, pages: [...state.pages, page] };
@@ -514,7 +604,7 @@ export function tagUsage(state: SidenoteState, id: string): number {
   return (
     state.notes.filter((note) => !note.deletedAt && note.tagIds.includes(id)).length +
     state.excerpts.filter((row) => !row.deletedAt && row.tagIds.includes(id)).length +
-    state.pages.filter((page) => page.tags.includes(tag.name)).length
+    state.pages.filter((page) => page.tagIds.includes(id)).length
   );
 }
 
@@ -562,6 +652,13 @@ export function normalizeState(raw: SidenoteState): { state: SidenoteState; chan
     changed = true;
     return id;
   };
+  const pages = (stored.pages ?? []).map((page) => {
+    const legacy = page as PageRecord & { tags?: string[]; tagIds?: string[] };
+    if (legacy.tagIds) return { ...legacy, ignoreQuery: true as const, tagIds: legacy.tagIds };
+    changed = true;
+    const tagIds = (legacy.tags ?? []).map((name) => ensureTag(name)).filter(Boolean);
+    return { ...legacy, ignoreQuery: true as const, tagIds };
+  });
   const notes = (stored.notes ?? []).map((note: StoredNote) => {
     const keywords = note.keywords;
     const tagIds = note.tagIds ?? keywords?.map(ensureTag).filter(Boolean) ?? [];
@@ -615,9 +712,11 @@ export function normalizeState(raw: SidenoteState): { state: SidenoteState; chan
     changed = true;
   }
   if (tags.length !== (stored.tags ?? []).length) changed = true;
+  const urlRules = stored.urlRules ?? [];
+  if (!stored.urlRules) changed = true;
   return {
     changed,
-    state: { ...stored, notes, excerpts, tags, contexts: stored.contexts ?? [], ui },
+    state: { ...stored, pages, notes, excerpts, tags, contexts: stored.contexts ?? [], urlRules, ui },
   };
 }
 
@@ -631,5 +730,5 @@ function clampLimit(value: number): number {
 }
 
 function newId(): string {
-  return crypto.randomUUID();
+  return `tmp_${crypto.randomUUID()}`;
 }

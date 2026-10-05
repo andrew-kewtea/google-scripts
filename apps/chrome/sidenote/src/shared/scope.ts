@@ -1,4 +1,5 @@
 import type { HistoryFilter, PageExcerpt, PageRecord, SidenoteState, UserAction } from './types.js';
+import { pageKey as canonicalPageKey, samePage } from './urlKey.js';
 
 export function hostOf(url: string): string {
   try {
@@ -9,28 +10,17 @@ export function hostOf(url: string): string {
 }
 
 export function scopeKey(url: string): string {
-  return pageKey(url, true);
+  return canonicalPageKey(url);
 }
 
-export function pageKey(url: string, ignoreQuery: boolean): string {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
-    if (!host) return '';
-    const path = parsed.pathname.replace(/\/+$/, '');
-    const base = host + (path ? path : '');
-    if (ignoreQuery) return base;
-    return base + parsed.search + parsed.hash;
-  } catch {
-    return '';
-  }
+export function pageKey(url: string, _ignoreQuery = true): string {
+  return canonicalPageKey(url);
 }
 
 export function matchPage(state: SidenoteState, url: string): PageRecord | undefined {
-  return state.pages.find((page) => {
-    const key = pageKey(url, page.ignoreQuery);
-    return key !== '' && key === pageKey(page.url, page.ignoreQuery);
-  });
+  const rules = state.urlRules ?? [];
+  if (!pageKey(url)) return undefined;
+  return state.pages.find((page) => samePage(url, page.url, page.patterns, rules));
 }
 
 export function acceptsAction(action: UserAction, filter: HistoryFilter): boolean {
@@ -39,7 +29,7 @@ export function acceptsAction(action: UserAction, filter: HistoryFilter): boolea
   return action === filter;
 }
 
-export function filterExcerpts(state: SidenoteState, pageId: string, filter: HistoryFilter): PageExcerpt[] {
+export function filterExcerpts(state: SidenoteState, pageId: string | undefined, filter: HistoryFilter): PageExcerpt[] {
   return state.excerpts.filter(
     (row) => !row.deletedAt && row.scope.pageId === pageId && acceptsAction(row.userAction, filter),
   );

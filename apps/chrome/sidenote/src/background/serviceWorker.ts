@@ -1,6 +1,9 @@
 import { pageKey } from '../shared/scope.js';
+import { installSync } from './syncWorker.js';
 
 export {};
+
+installSync();
 
 chrome.action.onClicked.addListener((tab) => {
   void toggle(tab);

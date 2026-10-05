@@ -66,21 +66,76 @@ function generalBlock(state: SidenoteState, session: Session): string {
 
 function accountBlock(state: SidenoteState, session: Session): string {
   const open = state.ui.openSettings.includes('account');
+  const meta = session.signedIn
+    ? `<span class="count">${esc(session.authEmail || 'Signed in')}</span>`
+    : '<span class="count">Local</span>';
+  const body = session.signedIn ? accountSignedIn() : accountSignedOut(state, session);
+  const sync = session.signedIn
+    ? `<button type="button" class="icon-btn" data-action="refresh-cloud" title="Sync" aria-label="Sync">${icon('sync')}</button>`
+    : '';
+  return sub('account', 'Account', meta, sync, body, open);
+}
+
+function accountSignedIn(): string {
+  return `<div class="account-form">
+      <p class="hint">Changes on this device sync to your account. The cloud copy stays when you log out.</p>
+      <button type="button" class="btn" data-action="logout">Log out</button>
+    </div>`;
+}
+
+function accountSignedOut(state: SidenoteState, session: Session): string {
   const used = stateBytes(state);
   const ratio = Math.min(100, (used / (10 * 1024 * 1024)) * 100);
-  const body = `<div class="usage"><div style="width:${ratio}%"></div></div>
-    <div class="meta">This device <span>${esc(formatBytes(used))}</span></div>
-    <div class="account-form">
-      <input id="account-email" type="email" value="${esc(session.accountEmail)}" placeholder="Email" aria-label="Email" autocomplete="username">
-      <input id="account-password" type="password" value="${esc(session.accountPassword)}" placeholder="Password" aria-label="Password" autocomplete="current-password">
-      <div class="account-actions">
-        <button type="button" class="btn" data-action="login-local">Log in</button>
-        <button type="button" class="btn" data-action="login-local">Google</button>
-        <button type="button" class="text-link" data-action="login-local">Create account</button>
-      </div>
-      <p class="hint">Notes stay on this device until sign-in is connected.</p>
+  if (session.accountView === 'reset') {
+    return `<div class="account-form">
+      <p class="hint">${esc(`If an account exists for ${session.accountEmail}, a password-reset link is on its way.`)}</p>
+      <button type="button" class="btn" data-action="account-back">Got it</button>
     </div>`;
-  return sub('account', 'Account', '<span class="count">Local</span>', '', body, open);
+  }
+  if (session.accountView === 'verify') {
+    return `<div class="account-form">
+      <p class="hint">Check your inbox for ${esc(session.accountEmail)} and open the verification link.</p>
+      <button type="button" class="btn" data-action="account-back">Got it</button>
+    </div>`;
+  }
+  const loginTab = session.accountTab === 'login';
+  const form = loginTab ? loginFields(session) : signupFields(session);
+  const error = session.accountError ? `<p class="account-error">${esc(session.accountError)}</p>` : '';
+  return `<div class="usage"><div style="width:${ratio}%"></div></div>
+    <div class="meta">This device <span>${esc(formatBytes(used))}</span></div>
+    <div class="account-tabs">
+      <button type="button" class="btn${loginTab ? '' : ' ghost'}" data-action="account-tab" data-tab="login">Log in</button>
+      <button type="button" class="btn${loginTab ? ' ghost' : ''}" data-action="account-tab" data-tab="signup">Sign up</button>
+    </div>
+    <div class="account-form">
+      ${form}
+      ${error}
+      <button type="button" class="btn google" data-action="login-google">${icon('login')} Continue with Google</button>
+    </div>`;
+}
+
+function loginFields(session: Session): string {
+  const type = session.showPassword ? 'text' : 'password';
+  return `<input id="account-email" type="email" value="${esc(session.accountEmail)}" placeholder="Email" aria-label="Email" autocomplete="username">
+    <input id="account-password" type="${type}" value="${esc(session.accountPassword)}" placeholder="Password" aria-label="Password" autocomplete="current-password">
+    <div class="account-actions">
+      <button type="button" class="btn" data-action="login">Log in</button>
+      <button type="button" class="text-link" data-action="toggle-password">${session.showPassword ? 'Hide' : 'Show'}</button>
+      <button type="button" class="text-link" data-action="forgot-password">Forgot password?</button>
+    </div>`;
+}
+
+function signupFields(session: Session): string {
+  const type = session.showPassword ? 'text' : 'password';
+  return `<input id="account-name" value="${esc(session.accountName)}" placeholder="Name" aria-label="Name" autocomplete="name">
+    <input id="account-email" type="email" value="${esc(session.accountEmail)}" placeholder="Email" aria-label="Email" autocomplete="username">
+    <input id="account-password" type="${type}" value="${esc(session.accountPassword)}" placeholder="At least 8 characters" aria-label="Password" autocomplete="new-password">
+    <input id="account-password2" type="${type}" value="${esc(session.accountPassword2)}" placeholder="Re-enter your password" aria-label="Confirm password" autocomplete="new-password">
+    <label class="check"><input id="account-eula" type="checkbox" ${session.agreeEula ? 'checked' : ''}> I agree to the End User License Agreement and Privacy Policy.</label>
+    <div class="account-actions">
+      <button type="button" class="btn" data-action="signup">Create account</button>
+      <button type="button" class="text-link" data-action="toggle-password">${session.showPassword ? 'Hide' : 'Show'}</button>
+    </div>`;
 }
 
 function tagsBlock(state: SidenoteState, session: Session): string {

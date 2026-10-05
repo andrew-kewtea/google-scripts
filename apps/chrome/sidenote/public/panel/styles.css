@@ -185,7 +185,8 @@ a:hover { text-decoration: underline; }
 
 .about-view { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; cursor: text; }
 .about-view:hover { background: #f8f5ee; }
-.about-title { font-size: 15.5px; }
+.about-title-row { display: flex; align-items: center; gap: 6px; }
+.about-title { font-size: 15.5px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .url-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .muted { color: var(--muted); font-size: 12.5px; }
@@ -476,6 +477,7 @@ select { height: 30px; padding: 0 8px; background: transparent; max-width: 180px
 .usage { height: 6px; background: var(--chip); border-radius: 99px; overflow: hidden; }
 .usage > div { height: 100%; background: var(--accent); }
 .account-form { display: flex; flex-direction: column; gap: 8px; max-width: 300px; padding-top: 8px; }
+.account-error { margin: 0; color: #8d3b32; font-size: 12.5px; line-height: 1.4; }
 .account-form input { height: 34px; padding: 0 10px; }
 .account-actions { display: flex; align-items: center; gap: 8px; }
 .text-link { margin-left: auto; border: 0; background: none; color: var(--link); font-size: 13px; padding: 0; }

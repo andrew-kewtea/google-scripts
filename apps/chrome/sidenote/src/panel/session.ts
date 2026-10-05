@@ -51,6 +51,18 @@ export type Session = {
   limitsTasks: number;
   accountEmail: string;
   accountPassword: string;
+  accountName: string;
+  accountPassword2: string;
+  accountTab: 'login' | 'signup';
+  accountView: 'form' | 'verify' | 'reset';
+  accountError: string;
+  agreeEula: boolean;
+  showPassword: boolean;
+  signedIn: boolean;
+  authEmail: string;
+  reauth: boolean;
+  tagSuggestions: { id: string; name: string }[];
+  cloudPage: Record<string, number>;
   notice: string;
   newTag: boolean;
   tagName: string;
@@ -118,6 +130,18 @@ export function createSession(): Session {
     limitsTasks: 10,
     accountEmail: '',
     accountPassword: '',
+    accountName: '',
+    accountPassword2: '',
+    accountTab: 'login',
+    accountView: 'form',
+    accountError: '',
+    agreeEula: false,
+    showPassword: false,
+    signedIn: false,
+    authEmail: '',
+    reauth: false,
+    tagSuggestions: [],
+    cloudPage: {},
     notice: '',
     newTag: false,
     tagName: '',

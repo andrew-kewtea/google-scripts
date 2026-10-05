@@ -1,9 +1,16 @@
 import { ancestorPaths } from '../shared/pageTree.js';
 import { matchPage, pageKey } from '../shared/scope.js';
 import type { SectionKey, SidenoteState, UserAction, Visibility } from '../shared/types.js';
+import { GOOGLE_CLIENT_ID } from '../lib/api.js';
+import { AuthError, loginWithGoogleCode, loginWithPassword, logoutAuth, requestPasswordReset, signupWithPassword, type AuthRecord } from '../lib/auth.js';
+import { apiRequest } from '../lib/http.js';
+import { nextListPage } from '../lib/sync.js';
+import { suggestPath, tagSelectOptions } from '../lib/tags.js';
+import { googleAuthUrl } from '../background/syncWorker.js';
+import { clearAuth, saveAuth, setReauth } from './chromeStorage.js';
 import { ENTRY_ACTIONS, expandShown } from './present.js';
 import type { DataService } from './dataService.js';
-import { nextColor } from './dataService.js';
+import { nextColor, QuotaError } from './dataService.js';
 import { panelWidth, renderPanel } from './render.js';
 import { createSession, pageContextFromSearch, type Session } from './session.js';
 
@@ -21,9 +28,20 @@ function contextDead(error: unknown): boolean {
   }
 }
 
-export function startPanel(service: DataService, initial: SidenoteState): PanelHandle {
+export function startPanel(
+  service: DataService,
+  initial: SidenoteState,
+  initialAuth: AuthRecord | null = null,
+  reauth = false,
+): PanelHandle {
   let state = initial;
+  let auth = initialAuth;
   const session = createSession();
+  session.reauth = reauth;
+  if (auth) {
+    session.signedIn = true;
+    session.authEmail = auth.email;
+  }
   const page = pageContextFromSearch(location.search);
   session.url = page.url;
   session.title = page.title;
@@ -39,6 +57,16 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
   });
   app.addEventListener('change', (event) => {
     void guard(() => onChange(event));
+  });
+  let suggestTimer = 0;
+  app.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.dataset.newTag) return;
+    window.clearTimeout(suggestTimer);
+    const query = target.value.trim();
+    suggestTimer = window.setTimeout(() => {
+      void loadTagSuggestions(query, false);
+    }, 200);
   });
   document.addEventListener('pointerdown', (event) => {
     if (!session.menu) return;
@@ -138,6 +166,11 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     try {
       await work();
     } catch (error) {
+      if (error instanceof QuotaError) {
+        session.notice = error.message;
+        draw();
+        return;
+      }
       if (!contextDead(error)) throw error;
       session.notice = 'This panel was disconnected by an extension reload. Click the sidenote icon to open it again, then save.';
       draw();
@@ -236,6 +269,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         session.noteCollectionId = state.collections.find((item) => !item.deletedAt)?.id ?? '';
         session.noteTagIds = [];
         session.focusId = 'note-text';
+        void loadTagSuggestions('');
         break;
       case 'edit-note':
         openNote(id);
@@ -296,6 +330,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         session.historyEditText = row.text;
         session.historyEditContextId = row.contextId ?? '';
         session.historyEditTagIds = [...row.tagIds];
+        void loadTagSuggestions('');
         session.focusId = 'history-edit-text';
         break;
       }
@@ -353,6 +388,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         break;
       case 'show-more-history':
         state = await service.setUi(state, { historyShown: state.ui.historyShown + 10 });
+        askNextPage('web-histories');
         break;
       case 'add-history':
         session.historyDraft = true;
@@ -362,6 +398,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         session.historyTagIds = [];
         session.historyExcerpt = '';
         session.focusId = 'history-text';
+        void loadTagSuggestions('');
         break;
       case 'cancel-history':
         session.historyDraft = false;
@@ -386,6 +423,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         break;
       case 'show-more-contexts':
         state = await service.setUi(state, { contextsShown: expandShown(state.settings.display.collections) });
+        askNextPage('contexts');
         break;
       case 'show-more-context-items':
         state = await service.setUi(state, {
@@ -430,6 +468,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         break;
       case 'show-more-collections':
         state = await service.setUi(state, { collectionsShown: expandShown(state.settings.display.collections) });
+        askNextPage('collections');
         break;
       case 'show-more-collection-items':
         state = await service.setUi(state, {
@@ -490,6 +529,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
             [id]: expandShown(state.settings.display.tasks),
           },
         });
+        askNextPage('tasks');
         break;
       case 'open-projects':
         session.projectsOpen = true;
@@ -527,9 +567,48 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         });
         session.limitsOpen = false;
         break;
-      case 'login-local':
-        session.notice = 'Sign-in is not connected. Notes stay on this device.';
-        session.accountPassword = '';
+      case 'login':
+        await signIn();
+        break;
+      case 'signup':
+        await signUp();
+        break;
+      case 'forgot-password':
+        await sendReset();
+        break;
+      case 'login-google':
+        await signInGoogle();
+        break;
+      case 'logout':
+        await signOut();
+        break;
+      case 'account-tab':
+        session.accountTab = el.dataset.tab === 'signup' ? 'signup' : 'login';
+        session.accountError = '';
+        session.accountView = 'form';
+        break;
+      case 'toggle-password':
+        session.showPassword = !session.showPassword;
+        break;
+      case 'account-back':
+        session.accountView = 'form';
+        session.accountError = '';
+        break;
+      case 'refresh-cloud':
+        try {
+          chrome.runtime.sendMessage({ type: 'sidenote:sync', reason: 'manual' });
+        } catch {
+          session.notice = 'Refresh could not start.';
+        }
+        break;
+      case 'open-account':
+        session.reauth = false;
+        void setReauth(false);
+        state = await service.setUi(state, {
+          expanded: true,
+          sections: { ...state.ui.sections, settings: true },
+          openSettings: state.ui.openSettings.includes('account') ? state.ui.openSettings : [...state.ui.openSettings, 'account'],
+        });
         break;
       case 'add-tag':
         session.newTag = true;
@@ -577,10 +656,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
     syncSession(fieldRoot(target));
-    if (target.id === 'about-tag-input') {
-      pushWord(session.aboutTags, session.tagInput);
-      session.tagInput = '';
-    } else if (target.id === 'pattern-input') {
+    if (target.id === 'pattern-input') {
       if (session.patternInput.trim()) session.patterns.push(session.patternInput.trim());
       session.patternInput = '';
     } else if (target.id === 'context-name') {
@@ -594,6 +670,18 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     } else if (target.id === 'project-name') {
       state = await service.createProject(state, session.projectName);
       session.projectName = '';
+    } else if (target.dataset.newTag) {
+      const name = target.value.trim();
+      if (!name) return;
+      state = await service.createTag(state, name);
+      const created = state.tags.find((tag) => !tag.deletedAt && tag.name.toLowerCase() === name.toLowerCase());
+      const scope = target.dataset.newTag;
+      if (created) {
+        if (scope === 'note' && !session.noteTagIds.includes(created.id)) session.noteTagIds.push(created.id);
+        if (scope === 'history' && !session.historyTagIds.includes(created.id)) session.historyTagIds.push(created.id);
+        if (scope === 'edit' && !session.historyEditTagIds.includes(created.id)) session.historyEditTagIds.push(created.id);
+        if (scope === 'about' && !session.aboutTags.includes(created.id)) session.aboutTags.push(created.id);
+      }
     } else if (target.id === 'task-title') {
       state = await service.updateTask(state, session.taskKey ?? '', {
         title: session.taskTitle,
@@ -636,13 +724,14 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       }
       return;
     }
-    if (target instanceof HTMLSelectElement && (target.id === 'history-tag' || target.id === 'edit-tag' || target.id === 'note-tag')) {
+    if (target instanceof HTMLSelectElement && (target.id === 'history-tag' || target.id === 'edit-tag' || target.id === 'note-tag' || target.id === 'about-tag')) {
       syncSession(fieldRoot(target));
       const tagId = target.value;
       if (tagId) {
         if (target.id === 'history-tag' && !session.historyTagIds.includes(tagId)) session.historyTagIds.push(tagId);
         if (target.id === 'edit-tag' && !session.historyEditTagIds.includes(tagId)) session.historyEditTagIds.push(tagId);
         if (target.id === 'note-tag' && !session.noteTagIds.includes(tagId)) session.noteTagIds.push(tagId);
+        if (target.id === 'about-tag' && !session.aboutTags.includes(tagId)) session.aboutTags.push(tagId);
       }
       draw();
       return;
@@ -650,6 +739,64 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     if (target instanceof HTMLInputElement && target.dataset.groupRead) {
       state = await service.updateGroup(state, target.dataset.groupRead, { readAccess: target.checked });
       draw();
+    }
+  }
+
+  function askNextPage(entity: string): void {
+    if (!session.signedIn) return;
+    const page = nextListPage(session.cloudPage[entity] ?? 1);
+    session.cloudPage[entity] = page;
+    void chrome.runtime.sendMessage({ type: 'sidenote:sync', reason: 'more', entity, page });
+  }
+
+  async function loadTagSuggestions(query: string, redraw = true): Promise<void> {
+    if (!auth) return;
+    const result = await apiRequest(fetch, auth, suggestPath(query));
+    if (result.auth) auth = result.auth;
+    if (result.reauth) {
+      auth = null;
+      session.signedIn = false;
+      session.reauth = true;
+      await clearAuth();
+      await setReauth(true);
+      draw();
+      return;
+    }
+    const rows = Array.isArray(result.body)
+      ? result.body
+      : result.body && typeof result.body === 'object' && Array.isArray((result.body as { items?: unknown[] }).items)
+        ? (result.body as { items: unknown[] }).items
+        : [];
+    session.tagSuggestions = rows.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const row = item as { id?: unknown; name?: unknown };
+      return row.id == null || typeof row.name !== 'string' ? [] : [{ id: String(row.id), name: row.name }];
+    });
+    if (redraw) draw();
+    else fillTagSelects();
+  }
+
+  function fillTagSelects(): void {
+    const local = state.tags.filter((tag) => !tag.deletedAt);
+    const specs: [string, string[]][] = [
+      ['note-tag', session.noteTagIds],
+      ['history-tag', session.historyTagIds],
+      ['edit-tag', session.historyEditTagIds],
+      ['about-tag', session.aboutTags],
+    ];
+    for (const [id, selected] of specs) {
+      const select = document.getElementById(id);
+      if (!(select instanceof HTMLSelectElement)) continue;
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = 'Add tag';
+      select.replaceChildren(blank);
+      for (const tag of tagSelectOptions(local, session.tagSuggestions, selected, session.signedIn)) {
+        const option = document.createElement('option');
+        option.value = tag.id;
+        option.textContent = `#${tag.name}`;
+        select.append(option);
+      }
     }
   }
 
@@ -756,6 +903,14 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     assign('account-password', (value) => {
       session.accountPassword = value;
     });
+    assign('account-name', (value) => {
+      session.accountName = value;
+    });
+    assign('account-password2', (value) => {
+      session.accountPassword2 = value;
+    });
+    const eula = fieldScope.querySelector('#account-eula');
+    if (eula instanceof HTMLInputElement) session.agreeEula = eula.checked;
     assign('tag-name', (value) => {
       session.tagName = value;
     });
@@ -777,9 +932,10 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     const page = session.url ? matchPage(state, session.url) : undefined;
     session.aboutEditing = true;
     session.aboutTitle = page?.title || session.title;
-    session.aboutTags = [...(page?.tags ?? [])];
+    session.aboutTags = [...(page?.tagIds ?? [])];
     session.tagInput = '';
     session.focusId = 'about-title';
+    void loadTagSuggestions('');
   }
 
   function openPatterns(): void {
@@ -812,6 +968,128 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     session.taskStatus = task.status;
     session.taskDue = task.due ?? '';
     session.focusId = 'task-title';
+  }
+
+  async function signIn(): Promise<void> {
+    session.accountError = '';
+    try {
+      const next = await loginWithPassword(fetch, session.accountEmail.trim(), session.accountPassword);
+      await adopt(next);
+    } catch (error) {
+      session.accountError = error instanceof AuthError ? error.message : 'Email or password is incorrect.';
+    }
+  }
+
+  async function signUp(): Promise<void> {
+    session.accountError = '';
+    if (session.accountPassword.length < 8) {
+      session.accountError = 'Use at least 8 characters.';
+      return;
+    }
+    if (session.accountPassword !== session.accountPassword2) {
+      session.accountError = 'Passwords do not match.';
+      return;
+    }
+    if (!session.agreeEula) {
+      session.accountError = 'Agree to the license and privacy policy first.';
+      return;
+    }
+    try {
+      const created = await signupWithPassword(fetch, {
+        name: session.accountName.trim(),
+        email: session.accountEmail.trim(),
+        password: session.accountPassword,
+      });
+      session.accountEmail = created.email;
+      session.accountPassword = '';
+      session.accountPassword2 = '';
+      session.accountView = 'verify';
+    } catch (error) {
+      session.accountError = error instanceof AuthError ? error.message : 'Could not create the account.';
+    }
+  }
+
+  async function sendReset(): Promise<void> {
+    session.accountError = '';
+    const email = session.accountEmail.trim();
+    if (!email) {
+      session.accountError = 'Enter the email for the reset link.';
+      return;
+    }
+    try {
+      session.notice = await requestPasswordReset(fetch, email);
+      session.accountView = 'reset';
+    } catch (error) {
+      session.accountError = error instanceof AuthError ? error.message : 'Could not send the reset email.';
+    }
+  }
+
+  async function signInGoogle(): Promise<void> {
+    session.accountError = '';
+    if (!GOOGLE_CLIENT_ID) {
+      session.accountError = 'Google sign-in is not configured for this build.';
+      return;
+    }
+    const redirectUri = chrome.identity.getRedirectURL();
+    const returned = await chrome.identity.launchWebAuthFlow({ url: googleAuthUrl(redirectUri), interactive: true });
+    if (!returned) {
+      session.accountError = 'Google sign-in was cancelled.';
+      return;
+    }
+    const code = new URL(returned).searchParams.get('code') ?? '';
+    if (!code) {
+      session.accountError = 'Google did not return a code.';
+      return;
+    }
+    try {
+      await adopt(await loginWithGoogleCode(fetch, code, redirectUri));
+    } catch (error) {
+      session.accountError = error instanceof AuthError ? error.message : 'Google sign-in failed.';
+    }
+  }
+
+  async function signOut(): Promise<void> {
+    if (auth) {
+      try {
+        await logoutAuth(fetch, auth);
+      } catch {
+        // Local sign-out still stands when the network call fails.
+      }
+    }
+    auth = null;
+    session.signedIn = false;
+    session.authEmail = '';
+    session.reauth = false;
+    await clearAuth();
+  }
+
+  async function adopt(next: AuthRecord): Promise<void> {
+    const me = await apiRequest(fetch, next, '/auth/me');
+    if (me.reauth) {
+      auth = null;
+      session.signedIn = false;
+      session.reauth = true;
+      await clearAuth();
+      await setReauth(true);
+      return;
+    }
+    const body = me.body && typeof me.body === 'object' ? (me.body as Record<string, unknown>) : {};
+    if (typeof body.email === 'string') next.email = body.email;
+    if (typeof body.uname === 'string') next.uname = body.uname;
+    if (body.id != null) next.userId = String(body.id);
+    auth = me.auth ?? next;
+    session.signedIn = true;
+    session.authEmail = auth.email;
+    session.accountError = '';
+    session.accountPassword = '';
+    session.reauth = false;
+    await saveAuth(auth);
+    await setReauth(false);
+    try {
+      chrome.runtime.sendMessage({ type: 'sidenote:sync', reason: 'login' });
+    } catch {
+      // The worker picks up the outbox on its next alarm.
+    }
   }
 
   async function saveHistory(): Promise<void> {

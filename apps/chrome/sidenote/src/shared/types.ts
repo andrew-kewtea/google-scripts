@@ -1,3 +1,5 @@
+import type { UrlRule } from './urlKey.js';
+
 export type Visibility = 'private' | 'public' | `group:${string}`;
 
 export type UserAction = 'read' | 'play' | 'link' | 'form' | 'highlight';
@@ -29,7 +31,7 @@ export type PageRecord = {
   url: string;
   patterns: string[];
   ignoreQuery: boolean;
-  tags: string[];
+  tagIds: string[];
   updatedAt: number;
 };
 
@@ -101,6 +103,7 @@ export type Task = {
   status: TaskStatus;
   due?: string;
   refUrl?: string;
+  memberIds?: string[];
   updatedAt: number;
   deletedAt?: number;
 };
@@ -172,6 +175,7 @@ export type SidenoteState = {
   tasks: Task[];
   tags: TagRecord[];
   groups: UserGroup[];
+  urlRules: UrlRule[];
   settings: Settings;
   ui: UiState;
 };
@@ -198,5 +202,12 @@ export type ExcerptInput = {
 };
 
 export const STORAGE_KEY = 'sidenote.state';
+export const AUTH_KEY = 'sidenote.auth';
+export const OUTBOX_KEY = 'sidenote.outbox';
+export const SYNCED_KEY = 'sidenote.syncedAt';
 
 export const LOCAL_QUOTA_BYTES = 10 * 1024 * 1024;
+export const CREATE_BLOCK_BYTES = 9 * 1024 * 1024;
+export const CACHE_PAGE_SIZE = 20;
+export const CACHE_CAP = 60;
+export const SYNC_PERIOD_MINUTES = 10;

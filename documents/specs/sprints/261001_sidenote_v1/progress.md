@@ -12,6 +12,16 @@ Date: 2026-10-02
 - `pnpm --filter sidenote test` covers seed, note edit, excerpt filters, the five hosts, and soft delete. API tests stay in `background_sync.md`.
 - Page scraping is not implemented. The design is `webPageActionContentScrap.md`.
 
+## API connect (2026-10-05)
+
+Design: `api_connect.md`. This replaces the `page_excerpt` single-resource decision in `background_sync.md`.
+
+- Empty storage stays empty. The demo seed is gone. Creates stop at 9MB.
+- Account signs in with email, signup, password reset, and Google. Tokens live in `sidenote.auth`. Logout clears tokens only.
+- Signed-in edits go to `sidenote.outbox`. The service worker pushes them and pulls about 20 rows per section on login, panel open, a 10 minute alarm, and Refresh. Show more asks for the next page. The local cap is 60.
+- Notes sync only when they have a `note_url_ref`. History maps to `web_histories`. Task `members` are stored as `memberIds` and are not shown.
+- Page scraping is still not implemented.
+
 ## Check
 
 ```bash

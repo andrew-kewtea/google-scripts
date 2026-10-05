@@ -1,3 +1,4 @@
+(() => {
 const HOST_ID = 'sidenote-host';
 const FLAG = '__sidenoteMounted';
 
@@ -23,22 +24,23 @@ function postPage(frame: HTMLIFrameElement, force = false): void {
   frame.contentWindow?.postMessage({ type: 'sidenote:page', url, title }, '*');
 }
 
+let pageTimer = 0;
+
+function schedulePage(frame: HTMLIFrameElement): void {
+  if (hostEl()?.dataset.open !== '1') return;
+  window.clearTimeout(pageTimer);
+  pageTimer = window.setTimeout(() => postPage(frame), 200);
+}
+
 function watchPage(frame: HTMLIFrameElement): void {
-  const publish = (): void => {
-    postPage(frame);
-    window.setTimeout(() => postPage(frame), 400);
-  };
+  const publish = (): void => schedulePage(frame);
   window.addEventListener('sidenote:location', publish);
   window.addEventListener('popstate', publish);
   window.addEventListener('hashchange', publish);
   window.addEventListener('pageshow', publish);
   const title = document.querySelector('title');
   if (title) {
-    new MutationObserver(() => postPage(frame)).observe(title, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
+    new MutationObserver(publish).observe(title, { childList: true, characterData: true, subtree: true });
   }
 }
 
@@ -73,7 +75,6 @@ function hostChrome(width: string): Record<string, string> {
     width,
     transform: CLOSED,
     transition: reducedMotion() ? 'none' : SLIDE,
-    'will-change': 'transform',
     contain: 'layout paint',
     'pointer-events': 'none',
     overflow: 'hidden',
@@ -161,8 +162,15 @@ function slide(host: HTMLElement, open: boolean): void {
     host.style.setProperty('transform', CLOSED, 'important');
     void host.offsetWidth;
   }
+  host.style.setProperty('will-change', 'transform', 'important');
   host.style.setProperty('transition', SLIDE, 'important');
   host.style.setProperty('transform', end, 'important');
+  const done = (event: TransitionEvent): void => {
+    if (event.target !== host || event.propertyName !== 'transform') return;
+    host.style.setProperty('will-change', 'auto', 'important');
+    host.removeEventListener('transitionend', done);
+  };
+  host.addEventListener('transitionend', done);
 }
 
 function setOpen(open: boolean): void {
@@ -210,7 +218,7 @@ if (!mark[FLAG]) {
     }
     if (message.type === 'sidenote:location') {
       const frame = hostEl()?.querySelector('iframe');
-      if (frame instanceof HTMLIFrameElement) postPage(frame, true);
+      if (frame instanceof HTMLIFrameElement) schedulePage(frame);
       sendResponse({ ok: true });
       return;
     }
@@ -219,6 +227,5 @@ if (!mark[FLAG]) {
     sendResponse({ ok: true });
   });
   boot();
-} else {
-  toggle();
 }
+})();

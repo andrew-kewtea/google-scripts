@@ -1,8 +1,8 @@
-const LOCATION_FLAG = '__sidenoteLocation';
-
-const locationMark = window as unknown as Record<string, boolean>;
-if (!locationMark[LOCATION_FLAG]) {
-  locationMark[LOCATION_FLAG] = true;
+(() => {
+  const installed = '__sidenoteLocation';
+  const mark = window as unknown as Record<string, boolean>;
+  if (mark[installed]) return;
+  mark[installed] = true;
   const notify = (): void => {
     window.dispatchEvent(new Event('sidenote:location'));
   };
@@ -18,4 +18,4 @@ if (!locationMark[LOCATION_FLAG]) {
   wrap('replaceState');
   window.addEventListener('popstate', notify);
   window.addEventListener('hashchange', notify);
-}
+})();

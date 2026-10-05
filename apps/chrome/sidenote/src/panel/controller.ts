@@ -88,9 +88,13 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     session.url = url;
     session.title = title;
     if (!pageChanged) {
+      if (matchPage(state, url)) return;
       const active = document.activeElement;
       if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
-      draw();
+      const heading = app.querySelector('.about-title');
+      const address = app.querySelector('.url-row .ellipsis');
+      if (heading) heading.textContent = title || 'This page';
+      if (address) address.textContent = url;
       return;
     }
     session.aboutEditing = false;
@@ -101,9 +105,16 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     session.selectedExcerptId = null;
     if (session.excerptModalId === 'draft') session.excerptModalId = null;
     const treeOpen = new Set(state.ui.treeOpen ?? []);
-    for (const path of ancestorPaths(url)) treeOpen.add(path);
-    state = { ...state, ui: { ...state.ui, treeOpen: [...treeOpen] } };
-    void service.setUi(state, { treeOpen: state.ui.treeOpen });
+    let grew = false;
+    for (const path of ancestorPaths(url)) {
+      if (treeOpen.has(path)) continue;
+      treeOpen.add(path);
+      grew = true;
+    }
+    if (grew) {
+      state = { ...state, ui: { ...state.ui, treeOpen: [...treeOpen] } };
+      void service.setUi(state, { treeOpen: state.ui.treeOpen });
+    }
     draw();
   });
 
@@ -115,7 +126,8 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       const columnOnly = sameExceptExpanded(state, next);
       state = next;
       if (columnOnly && app.querySelector('.col2-wrap')) {
-        applyExpanded(state.ui.expanded);
+        if (state.ui.expanded && !app.querySelector('.col-2')) draw();
+        else applyExpanded(state.ui.expanded);
         return;
       }
       draw();
@@ -155,7 +167,8 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     switch (action) {
       case 'toggle-expand':
         state = await service.setUi(state, { expanded: !state.ui.expanded });
-        applyExpanded(state.ui.expanded);
+        if (state.ui.expanded && !app.querySelector('.col-2')) draw();
+        else applyExpanded(state.ui.expanded);
         return;
       case 'close-second':
         state = await service.setUi(state, { expanded: false });

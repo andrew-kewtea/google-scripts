@@ -13,6 +13,17 @@ export function renderPanel(state: SidenoteState, session: Session): string {
   const expanded = state.ui.expanded;
   const expandIcon = expanded ? 'chevron_left' : 'chevron_right';
   const expandLabel = expanded ? 'Collapse' : 'Expand';
+  const second = expanded
+    ? `<div class="col col-2">
+        <div class="bar">
+          <button type="button" data-action="close-second" title="Close this column" aria-label="Close this column">${icon('close')}</button>
+        </div>
+        ${collectionsSection(state, session)}
+        ${contextsSection(state, session)}
+        ${tasksSection(state, session)}
+        ${settingsSection(state, session)}
+      </div>`
+    : '';
   return `<div class="panel">
     <div class="col">
       <div class="bar">
@@ -23,17 +34,7 @@ export function renderPanel(state: SidenoteState, session: Session): string {
       ${notesSection(state, session)}
       ${historySection(state, session)}
     </div>
-    <div class="col2-wrap${expanded ? ' open' : ''}">
-      <div class="col col-2">
-        <div class="bar">
-          <button type="button" data-action="close-second" title="Close this column" aria-label="Close this column">${icon('close')}</button>
-        </div>
-        ${collectionsSection(state, session)}
-        ${contextsSection(state, session)}
-        ${tasksSection(state, session)}
-        ${settingsSection(state, session)}
-      </div>
-    </div>
+    <div class="col2-wrap${expanded ? ' open' : ''}">${second}</div>
     ${session.notice ? noticeBanner(session.notice) : ''}
     ${excerptModal(session)}
     ${contextTaskModal(state, session)}

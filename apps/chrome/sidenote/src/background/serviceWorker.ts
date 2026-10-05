@@ -40,18 +40,32 @@ async function mount(tabId: number): Promise<void> {
 
 const REOPEN = 'sidenoteReopen';
 const opening = new Set<number>();
+const openTabs = new Set<number>();
 
 function openKey(tabId: number): string {
   return `sidenoteOpen:${tabId}`;
 }
+
+const ready = chrome.storage.session.get(null).then((bag) => {
+  for (const [key, value] of Object.entries(bag)) {
+    if (!key.startsWith('sidenoteOpen:') || value !== true) continue;
+    const id = Number(key.slice('sidenoteOpen:'.length));
+    if (Number.isInteger(id)) openTabs.add(id);
+  }
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== 'object') return;
   if (message.type === 'sidenote:panel') {
     const tabId = sender.tab?.id;
     if (tabId === undefined) return;
-    if (message.open === true) void chrome.storage.session.set({ [openKey(tabId)]: true });
-    else void chrome.storage.session.remove(openKey(tabId));
+    if (message.open === true) {
+      openTabs.add(tabId);
+      void chrome.storage.session.set({ [openKey(tabId)]: true });
+    } else {
+      openTabs.delete(tabId);
+      void chrome.storage.session.remove(openKey(tabId));
+    }
     sendResponse({ ok: true });
     return;
   }
@@ -69,19 +83,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  openTabs.delete(tabId);
   void chrome.storage.session.remove(openKey(tabId));
 });
 
 chrome.tabs.onUpdated.addListener((tabId, info) => {
-  if (typeof info.url === 'string') {
-    void chrome.tabs.sendMessage(tabId, { type: 'sidenote:location' }).catch(() => undefined);
-  }
-  if (info.status !== 'complete' || opening.has(tabId)) return;
-  opening.add(tabId);
-  void settle(tabId);
+  void ready.then(() => {
+    if (!openTabs.has(tabId)) return;
+    if (typeof info.url === 'string') {
+      void chrome.tabs.sendMessage(tabId, { type: 'sidenote:location' }).catch(() => undefined);
+    }
+    if (info.status !== 'complete' || opening.has(tabId)) return;
+    opening.add(tabId);
+    void settle(tabId);
+  });
 });
 
 async function gotoPage(tabId: number, url: string): Promise<void> {
+  openTabs.add(tabId);
   await chrome.storage.session.set({ [REOPEN]: { tabId, url } });
   await chrome.tabs.update(tabId, { url });
 }

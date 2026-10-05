@@ -1,8 +1,10 @@
 # sidenote page action and content scrap
 
-Status: design only. Do not implement in the v1 overlay sprint.  
+Status: superseded by `recording.md` (2026-10-06). Do not implement from this file.  
 Date: 2026-10-02  
 Code later: `apps/chrome/sidenote/src/content/tracker.ts`
+
+닫힌 패널 녹화, 20MB 내부 예산, `play`, `highlight` 한 행동, 최상위 프레임만 쓰는 결정은 `recording.md`가 기준이다. 아래는 2026-10-02 초안이다.
 
 v1 패널의 History는 시드된 `page_excerpt`만 보여 준다. 페이지에서 읽기·클릭·선택을 수집하는 코드는 없다.
 

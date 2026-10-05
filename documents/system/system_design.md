@@ -1,7 +1,7 @@
 Status: active  
 Canonical: yes  
 Owner: jungh  
-Last reviewed: 2026-10-05  
+Last reviewed: 2026-10-06  
 Related code: `apps/`, `pnpm-workspace.yaml`
 
 # System design
@@ -31,7 +31,7 @@ Two GAS products never share one scriptId. The retired TypeScript prototype had 
 ## Fast2
 
 `gsheet_sync` calls Fast2 with the base URL in the settings sheet (cell E7) plus `/api/v1`.  
-sidenote calls `https://api.kchloe.co/api/v1`. The panel renders `chrome.storage.local`. The service worker pushes an outbox and pulls a short cache. Resources: `urls`, `url_abouts`, `url_match_rules`, `notes` (`has_url=1`), `note_url_refs`, journal collections, `contexts`, `context_tasks`, `web_histories`, `tasks`, `projects`, `tags`, user groups, and `/users/me/preferences`. The HTTP contract stays in the fast2 repo.
+sidenote calls `https://api.kchloe.co/api/v1`. The panel renders `chrome.storage.local`. The service worker pushes an outbox and pulls a short cache. Resources: `urls`, `url_abouts`, `url_match_rules`, `notes` (`has_url=1`), `note_url_refs`, journal collections, `contexts`, `context_tasks`, `web_histories`, `tasks`, `projects`, `tags`, user groups, and `/users/me/preferences`. Automatic history capture is planned in `documents/specs/sprints/261001_sidenote_v1/recording.md` and is not in the build. The HTTP contract stays in the fast2 repo.
 
 ## Shared library, later
 

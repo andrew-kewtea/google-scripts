@@ -1,13 +1,15 @@
 Status: active  
 Owner: jungh  
-Last reviewed: 2026-10-05  
+Last reviewed: 2026-10-06  
 Related code: `apps/chrome/sidenote`
 
 # Chrome extension runtime
 
 Extensions in this repo use Manifest V3. sidenote's UI is an in-page overlay, not `chrome.sidePanel`. A side panel pushes the page and cannot host the two-column width. The product spec is `documents/specs/products/sidenote/spec.md`.
 
-The toolbar action injects a content script once (`scripting.executeScript` on the active tab). That script mounts a fixed host and an iframe whose document is `panel/index.html`. Later clicks send a toggle message. The iframe stays mounted while it is hidden. There is no `<all_urls>` content script until page scraping is implemented.
+The toolbar action injects a content script once (`scripting.executeScript` on the active tab). That script mounts a fixed host and an iframe whose document is `panel/index.html`. Later clicks send a toggle message. The iframe stays mounted while it is hidden. There is no manifest content script on every site.
+
+History recording is planned in `documents/specs/sprints/261001_sidenote_v1/recording.md` and is not in this build. When it is implemented, the tracker is a separate top-frame script. It is injected for an open panel, and also for other `http`/`https` tabs only if Settings asks. `unlimitedStorage` is added then. The UI budget is 20MB, and only automatic recording stops at that line.
 
 ## Build
 
@@ -43,4 +45,4 @@ Browser ESM imports in TypeScript source must end in `.js`, because that is the 
 
 The panel's data service takes a storage port. Tests use a memory port. The iframe uses the Chrome port. Do not write the page's `window.localStorage`.
 
-Do not commit tokens, and do not put user page text into the git repo. There is no demo seed. Empty storage stays empty. A local JSON payload at or above 9MB rejects new rows.
+Do not commit tokens, and do not put user page text into the git repo. There is no demo seed. Empty storage stays empty. This build rejects a new row at 9MB. The recording plan changes that budget. It is not applied yet.

@@ -20,7 +20,7 @@ The overlay UI reads and writes `chrome.storage.local`. Signed-in sync is in `do
 
 | Item | Note |
 | --- | --- |
-| Page scrap | `webPageActionContentScrap.md`. Read, link, form, highlight. Not implemented. Existing history rows sync; nothing is captured automatically |
+| History recording | `documents/specs/sprints/261001_sidenote_v1/recording.md`. Plan only. Same top-frame script when the panel is closed. `unlimitedStorage`, 20MB UI budget, recording stops at that line |
 | Highlight paint | `range` is stored so a later build can mark the page. The overlay does not paint it |
 | Task members | `memberIds` are stored from the task payload. No member UI |
 | Listing assets | Icon 128px, screenshots of the overlay, privacy text. See `documents/system/developments/chrome-publish.md` |

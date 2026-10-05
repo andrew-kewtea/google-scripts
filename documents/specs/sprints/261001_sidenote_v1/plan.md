@@ -16,9 +16,13 @@ The 2026-10-01 scaffold (`chrome.sidePanel`, one note field) is replaced by the 
 ## Docs
 
 - Product: `documents/specs/products/sidenote/spec.md`
-- Later sync: `background_sync.md`
-- Later scrape: `webPageActionContentScrap.md`
+- Later sync: `background_sync.md` (done as `api_connect.md`)
+- Later capture: `recording.md`. The 2026-10-02 scrape note is `webPageActionContentScrap.md`.
 - Progress: `progress.md`
+
+## Next plan
+
+History auto-recording is specified in `recording.md` and is not implemented. Closed-panel recording uses the same top-frame content script. `unlimitedStorage` lifts Chrome's 10MB cap. The UI budget is 20MB, and only automatic recording stops at that line.
 
 ## Not this sprint
 

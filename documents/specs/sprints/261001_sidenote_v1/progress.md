@@ -22,6 +22,14 @@ Design: `api_connect.md`. This replaces the `page_excerpt` single-resource decis
 - Notes sync only when they have a `note_url_ref`. History maps to `web_histories`. Task `members` are stored as `memberIds` and are not shown.
 - Page scraping is still not implemented.
 
+## Recording plan (2026-10-06)
+
+Design only: `recording.md`. Not in the build.
+
+- Recording while the panel is closed is the same content script, off unless Settings → General asks for it.
+- Manifest `unlimitedStorage` is planned. The on-screen budget becomes 20MB. At that line, automatic recording stops and the dot turns orange. Notes are not blocked.
+- `webPageActionContentScrap.md` is no longer the capture spec.
+
 ## Check
 
 ```bash

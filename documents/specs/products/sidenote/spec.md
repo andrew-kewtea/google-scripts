@@ -15,7 +15,7 @@ sidenote is a note panel pinned to the right edge of the page you are on.
 The 2026-10-01 scaffold used `chrome.sidePanel`. That host pushes the page and cannot match the two-column overlay. The panel is now an extension iframe injected on toolbar click. Reference UI: `documents/specs/sprints/261001_sidenote_v1/references/`.
 
 In scope: show and hide the first column, expand the second column, edit notes, history rows, collections, tasks, and settings in `chrome.storage.local`, and sync that cache to Fast2 after sign-in.  
-Out of scope: scraping the page, painting highlights, Web Store listing. Scraping stays in `documents/specs/sprints/261001_sidenote_v1/webPageActionContentScrap.md`. Sync is `api_connect.md`.
+Out of scope for this build: automatic history recording, painting highlights, Web Store listing. Recording is planned in `documents/specs/sprints/261001_sidenote_v1/recording.md` and is not implemented. Sync is `api_connect.md`.
 
 ## 2. Behavior
 
@@ -29,7 +29,7 @@ Out of scope: scraping the page, painting highlights, Web Store listing. Scrapin
 | Account | Email and password, signup, password reset, and Google. Signed in, the email replaces Local, the usage bar hides, and Logout clears tokens only |
 | Refresh | About page title and Account. Signed in only. Same full pull |
 
-Empty storage stays empty. A create is refused when the stored JSON is 9MB or larger. Signed in, each section keeps about 20 recent rows, with a local cap of 60.
+Empty storage stays empty. This build still refuses a create at 9MB. The recording plan replaces that with `unlimitedStorage` and a 20MB UI budget, and only automatic recording stops at 20MB. Signed in, each section keeps about 20 recent rows, with a local cap of 60.
 
 About shows the tab that was active when the panel opened. Notes and history belong to that path: `www`, a trailing slash, a hash, and the query string do not make a different page. Extra matches come from `url_match_rules` and the page's patterns. Another path on the same host, such as `chatgpt.com/c/…`, has its own notes. Those other paths show up in the About tree, and the name opens that URL in a new tab.
 
@@ -77,7 +77,7 @@ Unpacked load: `documents/system/developments/chrome-publish.md`.
 
 ## 6. Later
 
-Page scraping stays in the sprint design docs. The backlog is `documents/specs/backlogs/sidenote.md`.
+Automatic recording is planned in `documents/specs/sprints/261001_sidenote_v1/recording.md`. The backlog is `documents/specs/backlogs/sidenote.md`.
 
 ## Revision
 
@@ -86,3 +86,4 @@ Page scraping stays in the sprint design docs. The backlog is `documents/specs/b
 | 2026-10-01 | Scaffold. Side panel, local draft, no Fast2 calls |
 | 2026-10-02 | In-page two-column overlay. Render from `chrome.storage.local`. `page_excerpt` for history |
 | 2026-10-05 | Seed removed. Sign-in and a 20-row cache. History API is `web_histories` |
+| 2026-10-06 | Recording plan only. Not in this build |

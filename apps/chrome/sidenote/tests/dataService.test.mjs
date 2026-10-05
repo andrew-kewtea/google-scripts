@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createDataService, memoryPort, normalizeState } from '../dist/panel/dataService.js';
+import { createDataService, memoryPort, normalizeState, tagUsage } from '../dist/panel/dataService.js';
 import { pageContextFromSearch } from '../dist/panel/session.js';
 import { createDemoState } from '../dist/shared/demoData.js';
-import { buildPageTree, visibleTreeRows } from '../dist/shared/pageTree.js';
+import { ancestorPaths, buildPageTree, visibleTreeRows } from '../dist/shared/pageTree.js';
 import { filterExcerpts, hostOf, matchPage } from '../dist/shared/scope.js';
 
 test('empty storage is seeded once with five pages', async () => {
@@ -91,7 +91,7 @@ test('note create, update, and soft delete stay on the same path', async () => {
   assert.equal(state.notes.find((note) => note.pageId === child.id && !note.deletedAt)?.text, 'thread only');
 });
 
-test('page excerpts filter by action and highlights include copy and select', async () => {
+test('page excerpts filter by action and highlights are highlight rows', async () => {
   const service = createDataService(memoryPort());
   let state = await service.load();
   const bbc = matchPage(
@@ -100,11 +100,7 @@ test('page excerpts filter by action and highlights include copy and select', as
   );
   assert.ok(bbc);
   assert.ok(filterExcerpts(state, bbc.id, 'read').every((row) => row.userAction === 'read'));
-  assert.ok(
-    filterExcerpts(state, bbc.id, 'highlights').every(
-      (row) => row.userAction === 'copy' || row.userAction === 'select',
-    ),
-  );
+  assert.ok(filterExcerpts(state, bbc.id, 'highlights').every((row) => row.userAction === 'highlight'));
 
   state = await service.addExcerpt(state, {
     pageId: bbc.id,
@@ -116,15 +112,14 @@ test('page excerpts filter by action and highlights include copy and select', as
   state = await service.addExcerpt(state, {
     pageId: bbc.id,
     url: bbc.url,
-    userAction: 'copy',
+    userAction: 'highlight',
     text: 'Copied line',
     excerpt: 'Copied line',
     range: { textQuote: 'Copied line', startOffset: 0, endOffset: 11 },
   });
 
   const highlights = filterExcerpts(state, bbc.id, 'highlights');
-  assert.ok(highlights.some((row) => row.userAction === 'copy'));
-  assert.ok(highlights.some((row) => row.userAction === 'select'));
+  assert.ok(highlights.some((row) => row.text === 'Copied line'));
   assert.equal(filterExcerpts(state, bbc.id, 'form').length, 1);
   assert.equal(highlights.filter((row) => row.userAction === 'form').length, 0);
 });
@@ -177,12 +172,21 @@ test('about tree is the current host path, collapsed to the domain', () => {
   const open = visibleTreeRows(root, ['bbc.com', 'bbc.com/future', 'bbc.com/future/article'], current);
   assert.deepEqual(
     open.map((row) => row.label),
-    ['bbc.com', 'future/', 'article/', '20260930-metas-new-ai-is-about-to-break-the-internet', 'other'],
+    ['bbc.com', 'future/', 'article/', '20260930-metas-new-a...', 'other'],
   );
-  const leaf = open.find((row) => row.label === '20260930-metas-new-ai-is-about-to-break-the-internet');
+  const leaf = open.find((row) => row.label === '20260930-metas-new-a...');
   assert.equal(leaf?.current, true);
   assert.equal(leaf?.count, 1);
   assert.equal(buildPageTree(entries, 'https://chatgpt.com/')?.children.length, 0);
+  assert.deepEqual(ancestorPaths(current), ['bbc.com', 'bbc.com/future', 'bbc.com/future/article']);
+  assert.deepEqual(ancestorPaths('https://chatgpt.com/'), []);
+
+  const thread = 'https://chatgpt.com/c/6ac065b4-de50-83ee-90ca-b40812ef7e5d';
+  const titled = buildPageTree([{ url: thread, notes: 1, title: '플로우 고객사 매출 조사' }], thread);
+  assert.ok(titled);
+  const threadRows = visibleTreeRows(titled, ['chatgpt.com', 'chatgpt.com/c'], thread);
+  const threadLeaf = threadRows.find((row) => row.current);
+  assert.equal(threadLeaf?.label, '6ac065b4-de50-83ee-9... (플로우 고객사 매출 조사)');
 });
 
 test('soft-deleted excerpts drop out of the history filter', async () => {
@@ -213,7 +217,7 @@ test('a typed history row is stored on the page and drops out of both lists when
     url: 'https://chatgpt.com/c/abc',
     title: 'Thread',
     text: '  remembered this  ',
-    userAction: 'click',
+    userAction: 'link',
     contextId: null,
     tagIds: [],
   });
@@ -221,7 +225,7 @@ test('a typed history row is stored on the page and drops out of both lists when
   assert.ok(page);
   const mine = state.excerpts.find((row) => row.text === 'remembered this');
   assert.ok(mine);
-  assert.equal(mine.userAction, 'click');
+  assert.equal(mine.userAction, 'link');
   assert.equal(mine.contextId, null);
   assert.equal(mine.scope.pageId, page.id);
   assert.equal(filterExcerpts(state, page.id, 'all').some((row) => row.id === mine.id), true);
@@ -288,7 +292,7 @@ test('context tasks stay on the context and are not copied onto history', async 
     url: 'https://chatgpt.com/',
     title: 'ChatGPT',
     text: 'loose',
-    userAction: 'scrap',
+    userAction: 'play',
     contextId: null,
     tagIds: [],
   });
@@ -311,7 +315,7 @@ test('context tasks stay on the context and are not copied onto history', async 
     url: 'https://chatgpt.com/',
     title: 'ChatGPT',
     text: 'inside',
-    userAction: 'click',
+    userAction: 'link',
     contextId: context.id,
     tagIds: [tagId],
     excerpt: 'body',
@@ -319,11 +323,52 @@ test('context tasks stay on the context and are not copied onto history', async 
   const inside = state.excerpts.find((row) => row.text === 'inside');
   assert.ok(inside);
   assert.equal(inside.contextId, context.id);
-  assert.equal(inside.userAction, 'click');
+  assert.equal(inside.userAction, 'link');
   assert.equal(inside.excerpt, 'body');
   assert.deepEqual(inside.tagIds, [tagId]);
   assert.equal(inside.taskIds, undefined);
   assert.deepEqual(state.contexts.find((item) => item.id === context.id)?.taskIds, [taskId]);
+});
+
+test('old history kinds collapse, unused tags delete, and a note can stay uncategorized', async () => {
+  const demo = createDemoState();
+  const sample = demo.excerpts[0];
+  demo.excerpts = [
+    ...demo.excerpts,
+    { ...sample, id: 'old-copy', userAction: 'copy', text: 'copied' },
+    { ...sample, id: 'old-manual', userAction: 'manual', text: 'typed by hand' },
+    { ...sample, id: 'old-click', userAction: 'click', text: 'left via link' },
+  ];
+  const normalized = normalizeState(demo);
+  assert.equal(normalized.changed, true);
+  assert.equal(normalized.state.excerpts.find((row) => row.id === 'old-copy')?.userAction, 'highlight');
+  assert.ok(normalized.state.excerpts.find((row) => row.id === 'old-manual')?.deletedAt);
+  assert.equal(normalized.state.excerpts.find((row) => row.id === 'old-click')?.userAction, 'link');
+  assert.equal(normalized.state.excerpts.find((row) => row.id === 'old-click')?.deletedAt, undefined);
+
+  const service = createDataService(memoryPort(normalized.state));
+  let state = await service.load();
+  state = await service.createTag(state, 'spare');
+  const spare = state.tags.find((tag) => tag.name === 'spare');
+  assert.ok(spare);
+  assert.equal(tagUsage(state, spare.id), 0);
+  state = await service.deleteTag(state, spare.id);
+  assert.ok(state.tags.find((tag) => tag.id === spare.id)?.deletedAt);
+  const muse = state.tags.find((tag) => tag.name === 'muse');
+  assert.ok(muse);
+  assert.ok(tagUsage(state, muse.id) > 0);
+  const kept = await service.deleteTag(state, muse.id);
+  assert.equal(kept.tags.find((tag) => tag.id === muse.id)?.deletedAt, undefined);
+
+  state = await service.createNote(state, {
+    url: 'https://chatgpt.com/',
+    title: 'ChatGPT',
+    text: 'loose note',
+    visibility: 'private',
+    collectionId: null,
+    tagIds: [],
+  });
+  assert.equal(state.notes.find((note) => note.text === 'loose note')?.collectionId, null);
 });
 
 test('panel reads the page address and title baked into its iframe query', () => {

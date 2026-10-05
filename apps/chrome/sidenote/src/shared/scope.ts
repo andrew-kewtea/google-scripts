@@ -35,7 +35,7 @@ export function matchPage(state: SidenoteState, url: string): PageRecord | undef
 
 export function acceptsAction(action: UserAction, filter: HistoryFilter): boolean {
   if (filter === 'all') return true;
-  if (filter === 'highlights') return action === 'copy' || action === 'select';
+  if (filter === 'highlights') return action === 'highlight';
   return action === filter;
 }
 

@@ -79,6 +79,7 @@ export type DataService = {
   saveSettings(state: SidenoteState, patch: Partial<Settings>): Promise<SidenoteState>;
   saveDisplay(state: SidenoteState, display: DisplayLimits): Promise<SidenoteState>;
   createTag(state: SidenoteState, name: string): Promise<SidenoteState>;
+  deleteTag(state: SidenoteState, id: string): Promise<SidenoteState>;
   updateTag(state: SidenoteState, id: string, visibility: Visibility): Promise<SidenoteState>;
   createGroup(state: SidenoteState, name: string): Promise<SidenoteState>;
   updateGroup(state: SidenoteState, id: string, patch: Partial<UserGroup>): Promise<SidenoteState>;
@@ -145,7 +146,7 @@ export function createDataService(port: StoragePort): DataService {
         pageId: page.id,
         text,
         visibility: input.visibility,
-        collectionId: input.collectionId,
+        collectionId: liveCollectionId(next, input.collectionId),
         tagIds: cleanIds(input.tagIds),
         createdAt: now,
         updatedAt: now,
@@ -164,7 +165,7 @@ export function createDataService(port: StoragePort): DataService {
                 ...note,
                 text,
                 visibility: input.visibility,
-                collectionId: input.collectionId,
+                collectionId: liveCollectionId(state, input.collectionId),
                 tagIds: cleanIds(input.tagIds),
                 updatedAt: Date.now(),
               }
@@ -417,6 +418,15 @@ export function createDataService(port: StoragePort): DataService {
       return commit({ ...state, tags: [...state.tags, row] });
     },
 
+    async deleteTag(state, id) {
+      if (tagUsage(state, id) > 0) return commit(state);
+      const now = Date.now();
+      return commit({
+        ...state,
+        tags: state.tags.map((tag) => (tag.id === id ? { ...tag, deletedAt: now, updatedAt: now } : tag)),
+      });
+    },
+
     async updateTag(state, id, visibility) {
       return commit({
         ...state,
@@ -482,7 +492,7 @@ function replacePage(state: SidenoteState, id: string, patch: Partial<PageRecord
   };
 }
 
-const ENTRY_ACTIONS: UserAction[] = ['read', 'link', 'form', 'click', 'scrap', 'copy', 'select'];
+const ENTRY_ACTIONS: UserAction[] = ['read', 'play', 'link', 'form', 'highlight'];
 
 function cleanIds(ids: string[]): string[] {
   return [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
@@ -491,6 +501,30 @@ function cleanIds(ids: string[]): string[] {
 function liveContextId(state: SidenoteState, id: string | null): string | null {
   if (!id) return null;
   return state.contexts.some((context) => context.id === id && !context.deletedAt) ? id : null;
+}
+
+function liveCollectionId(state: SidenoteState, id: string | null): string | null {
+  if (!id) return null;
+  return state.collections.some((collection) => collection.id === id && !collection.deletedAt) ? id : null;
+}
+
+export function tagUsage(state: SidenoteState, id: string): number {
+  const tag = state.tags.find((item) => item.id === id);
+  if (!tag) return 0;
+  return (
+    state.notes.filter((note) => !note.deletedAt && note.tagIds.includes(id)).length +
+    state.excerpts.filter((row) => !row.deletedAt && row.tagIds.includes(id)).length +
+    state.pages.filter((page) => page.tags.includes(tag.name)).length
+  );
+}
+
+const CANONICAL_ACTIONS = new Set<UserAction>(['read', 'play', 'link', 'form', 'highlight']);
+
+function canonicalAction(action: string): { next: UserAction; drop: boolean } {
+  if (action === 'copy' || action === 'select') return { next: 'highlight', drop: false };
+  if (action === 'click') return { next: 'link', drop: false };
+  if (CANONICAL_ACTIONS.has(action as UserAction)) return { next: action as UserAction, drop: false };
+  return { next: 'read', drop: true };
 }
 
 type StoredNote = Note & { keywords?: string[] };
@@ -502,6 +536,8 @@ type StoredState = SidenoteState & {
     contextSort?: UiState['contextSort'];
     contextsShown?: number;
     contextItemsShown?: Record<string, number>;
+    collectionItemsShown?: Record<string, number>;
+    taskItemsShown?: Record<string, number>;
     openContexts?: string[];
     sections: UiState['sections'] & { globalHistory?: boolean; contexts?: boolean };
   };
@@ -534,9 +570,19 @@ export function normalizeState(raw: SidenoteState): { state: SidenoteState; chan
     delete next.keywords;
     return next as Note;
   });
+  const now = Date.now();
   const excerpts = (stored.excerpts ?? []).map((row) => {
-    if (row.contextId === undefined || !row.tagIds) changed = true;
-    return { ...row, contextId: row.contextId ?? null, tagIds: row.tagIds ?? [] };
+    const action = canonicalAction(String(row.userAction));
+    if (row.contextId === undefined || !row.tagIds || action.next !== row.userAction || (action.drop && !row.deletedAt)) {
+      changed = true;
+    }
+    return {
+      ...row,
+      userAction: action.next,
+      contextId: row.contextId ?? null,
+      tagIds: row.tagIds ?? [],
+      deletedAt: action.drop ? row.deletedAt ?? now : row.deletedAt,
+    };
   });
   if (!stored.contexts) changed = true;
   const sections = { ...stored.ui.sections };
@@ -552,14 +598,18 @@ export function normalizeState(raw: SidenoteState): { state: SidenoteState; chan
     ...stored.ui,
     sections,
     contextSort: stored.ui.contextSort ?? 'recency',
-    contextsShown: stored.ui.contextsShown ?? 20,
+    contextsShown: stored.ui.contextsShown ?? 10,
     contextItemsShown: stored.ui.contextItemsShown ?? {},
+    collectionItemsShown: stored.ui.collectionItemsShown ?? {},
+    taskItemsShown: stored.ui.taskItemsShown ?? {},
     openContexts: stored.ui.openContexts ?? [],
   };
   if (
     stored.ui.contextSort === undefined ||
     stored.ui.contextsShown === undefined ||
     stored.ui.contextItemsShown === undefined ||
+    stored.ui.collectionItemsShown === undefined ||
+    stored.ui.taskItemsShown === undefined ||
     stored.ui.openContexts === undefined
   ) {
     changed = true;

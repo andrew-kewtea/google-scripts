@@ -1,6 +1,7 @@
-import { matchPage } from '../shared/scope.js';
+import { ancestorPaths } from '../shared/pageTree.js';
+import { matchPage, pageKey } from '../shared/scope.js';
 import type { SectionKey, SidenoteState, UserAction, Visibility } from '../shared/types.js';
-import { ENTRY_ACTIONS } from './present.js';
+import { ENTRY_ACTIONS, expandShown } from './present.js';
 import type { DataService } from './dataService.js';
 import { nextColor } from './dataService.js';
 import { panelWidth, renderPanel } from './render.js';
@@ -83,8 +84,26 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     const url = data.url ?? '';
     const title = data.title ?? '';
     if (!url || (url === session.url && title === session.title)) return;
+    const pageChanged = pageKey(url, true) !== pageKey(session.url, true);
     session.url = url;
     session.title = title;
+    if (!pageChanged) {
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
+      draw();
+      return;
+    }
+    session.aboutEditing = false;
+    session.patternsOpen = false;
+    if (session.noteKey === 'new') session.noteKey = null;
+    session.historyDraft = false;
+    session.excerptEditing = false;
+    session.selectedExcerptId = null;
+    if (session.excerptModalId === 'draft') session.excerptModalId = null;
+    const treeOpen = new Set(state.ui.treeOpen ?? []);
+    for (const path of ancestorPaths(url)) treeOpen.add(path);
+    state = { ...state, ui: { ...state.ui, treeOpen: [...treeOpen] } };
+    void service.setUi(state, { treeOpen: state.ui.treeOpen });
     draw();
   });
 
@@ -130,7 +149,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       event.stopPropagation();
       return;
     }
-    syncSession();
+    syncSession(fieldRoot(el));
     const id = el.dataset.id ?? '';
 
     switch (action) {
@@ -208,6 +227,17 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       case 'edit-note':
         openNote(id);
         break;
+      case 'goto-page': {
+        const url = el.dataset.url ?? '';
+        if (!/^https?:/i.test(url)) break;
+        if (session.url && pageKey(session.url, true) === pageKey(url, true)) {
+          state = await service.setUi(state, { expanded: false });
+          applyExpanded(false);
+          break;
+        }
+        if (window.parent !== window) window.parent.postMessage({ type: 'sidenote:open-url', url }, '*');
+        return;
+      }
       case 'cancel-note':
         session.noteKey = null;
         break;
@@ -235,6 +265,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         if (
           el.dataset.filter === 'all' ||
           el.dataset.filter === 'read' ||
+          el.dataset.filter === 'play' ||
           el.dataset.filter === 'link' ||
           el.dataset.filter === 'form' ||
           el.dataset.filter === 'highlights'
@@ -341,13 +372,13 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         state = await service.setUi(state, { openContexts: toggleId(state.ui.openContexts, id) });
         break;
       case 'show-more-contexts':
-        state = await service.setUi(state, { contextsShown: state.ui.contextsShown + 20 });
+        state = await service.setUi(state, { contextsShown: expandShown(state.settings.display.collections) });
         break;
       case 'show-more-context-items':
         state = await service.setUi(state, {
           contextItemsShown: {
             ...state.ui.contextItemsShown,
-            [id]: (state.ui.contextItemsShown[id] ?? 20) + 20,
+            [id]: expandShown(state.settings.display.notesPerCollection),
           },
         });
         break;
@@ -385,8 +416,14 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         state = await service.setUi(state, { openCollections: toggleId(state.ui.openCollections, id) });
         break;
       case 'show-more-collections':
+        state = await service.setUi(state, { collectionsShown: expandShown(state.settings.display.collections) });
+        break;
+      case 'show-more-collection-items':
         state = await service.setUi(state, {
-          collectionsShown: state.ui.collectionsShown + state.settings.display.collections,
+          collectionItemsShown: {
+            ...state.ui.collectionItemsShown,
+            [id]: expandShown(state.settings.display.notesPerCollection),
+          },
         });
         break;
       case 'set-task-sort':
@@ -433,9 +470,12 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       case 'toggle-project':
         state = await service.setUi(state, { openProjects: toggleId(state.ui.openProjects, id) });
         break;
-      case 'show-more-tasks':
+      case 'show-more-project-tasks':
         state = await service.setUi(state, {
-          tasksShown: state.ui.tasksShown + state.settings.display.tasks,
+          taskItemsShown: {
+            ...state.ui.taskItemsShown,
+            [id]: expandShown(state.settings.display.tasks),
+          },
         });
         break;
       case 'open-projects':
@@ -483,6 +523,18 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         session.tagName = '';
         session.focusId = 'tag-name';
         break;
+      case 'save-tag':
+        if (session.tagName.trim()) state = await service.createTag(state, session.tagName);
+        session.newTag = false;
+        session.tagName = '';
+        break;
+      case 'cancel-tag':
+        session.newTag = false;
+        session.tagName = '';
+        break;
+      case 'delete-tag':
+        state = await service.deleteTag(state, id);
+        break;
       case 'set-tag-vis':
         state = await service.updateTag(state, id, (el.dataset.vis ?? 'private') as Visibility);
         session.menu = null;
@@ -491,6 +543,15 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
         session.newGroup = true;
         session.groupName = '';
         session.focusId = 'group-name';
+        break;
+      case 'save-group':
+        if (session.groupName.trim()) state = await service.createGroup(state, session.groupName);
+        session.newGroup = false;
+        session.groupName = '';
+        break;
+      case 'cancel-group':
+        session.newGroup = false;
+        session.groupName = '';
         break;
       default:
         return;
@@ -502,7 +563,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     if (event.key !== 'Enter') return;
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
-    syncSession();
+    syncSession(fieldRoot(target));
     if (target.id === 'about-tag-input') {
       pushWord(session.aboutTags, session.tagInput);
       session.tagInput = '';
@@ -520,14 +581,6 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     } else if (target.id === 'project-name') {
       state = await service.createProject(state, session.projectName);
       session.projectName = '';
-    } else if (target.id === 'tag-name') {
-      state = await service.createTag(state, session.tagName);
-      session.newTag = false;
-      session.tagName = '';
-    } else if (target.id === 'group-name') {
-      state = await service.createGroup(state, session.groupName);
-      session.newGroup = false;
-      session.groupName = '';
     } else if (target.id === 'task-title') {
       state = await service.updateTask(state, session.taskKey ?? '', {
         title: session.taskTitle,
@@ -571,7 +624,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
       return;
     }
     if (target instanceof HTMLSelectElement && (target.id === 'history-tag' || target.id === 'edit-tag' || target.id === 'note-tag')) {
-      syncSession();
+      syncSession(fieldRoot(target));
       const tagId = target.value;
       if (tagId) {
         if (target.id === 'history-tag' && !session.historyTagIds.includes(tagId)) session.historyTagIds.push(tagId);
@@ -616,7 +669,8 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     placeMenus();
   }
 
-  function syncSession(): void {
+  function syncSession(root: ParentNode = document): void {
+    fieldScope = root;
     assign('about-title', (value) => {
       session.aboutTitle = value;
     });
@@ -626,9 +680,9 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     assign('pattern-input', (value) => {
       session.patternInput = value;
     });
-    const ignore = document.getElementById('pattern-ignore');
+    const ignore = fieldScope.querySelector('#pattern-ignore');
     if (ignore instanceof HTMLInputElement) session.ignoreQuery = ignore.checked;
-    document.querySelectorAll<HTMLInputElement>('[data-pattern-index]').forEach((input) => {
+    fieldScope.querySelectorAll<HTMLInputElement>('[data-pattern-index]').forEach((input) => {
       const index = Number(input.dataset.patternIndex);
       if (Number.isInteger(index)) session.patterns[index] = input.value;
     });
@@ -730,7 +784,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     session.noteKey = id;
     session.noteText = note.text;
     session.noteVisibility = note.visibility;
-    session.noteCollectionId = note.collectionId;
+    session.noteCollectionId = note.collectionId ?? '';
     session.noteTagIds = [...note.tagIds];
     session.focusId = 'note-text';
   }
@@ -775,7 +829,7 @@ export function startPanel(service: DataService, initial: SidenoteState): PanelH
     const input = {
       text: session.noteText,
       visibility: session.noteVisibility,
-      collectionId: session.noteCollectionId,
+      collectionId: session.noteCollectionId || null,
       tagIds: session.noteTagIds,
     };
     if (session.noteKey === 'new') {
@@ -867,15 +921,21 @@ function pushWord(list: string[], raw: string): void {
   if (word && !list.includes(word)) list.push(word);
 }
 
+let fieldScope: ParentNode = document;
+
+function fieldRoot(el: Element): ParentNode {
+  return el.closest('article, .task-edit, .editor, .set-add, .modal') ?? document;
+}
+
 function assign(id: string, apply: (value: string) => void): void {
-  const el = document.getElementById(id);
+  const el = fieldScope.querySelector(`#${CSS.escape(id)}`);
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
     apply(el.value);
   }
 }
 
 function assignNumber(id: string, apply: (value: number) => void): void {
-  const el = document.getElementById(id);
+  const el = fieldScope.querySelector(`#${CSS.escape(id)}`);
   if (el instanceof HTMLInputElement && el.value !== '') apply(Number(el.value));
 }
 

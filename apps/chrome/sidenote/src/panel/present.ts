@@ -23,8 +23,6 @@ export function liveExcerpts(rows: PageExcerpt[], shown: number): { items: PageE
   return { items: sorted.slice(0, shown), more: sorted.length > shown };
 }
 
-export const CONTEXT_PAGE = 20;
-
 export type ContextGroup = {
   id: string;
   name: string;
@@ -70,8 +68,25 @@ export function liveCollections(state: SidenoteState): Collection[] {
 export function notesInCollection(state: SidenoteState, collectionId: string): Note[] {
   return state.notes
     .filter((note) => !note.deletedAt && note.collectionId === collectionId)
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, state.settings.display.notesPerCollection);
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export function pageSize(setting: number): number {
+  if (!Number.isFinite(setting)) return 10;
+  return Math.min(10, Math.max(1, Math.round(setting)));
+}
+
+export function expandShown(setting: number): number {
+  const page = pageSize(setting);
+  return Math.min(20, page * 2);
+}
+
+export function listWindow(total: number, stored: number | undefined, setting: number): { count: number; more: boolean } {
+  const page = pageSize(setting);
+  const expanded = stored !== undefined && stored > page;
+  const count = Math.min(total, expanded ? Math.min(20, page * 2) : page);
+  const more = total > count && !expanded && count < 20;
+  return { count, more };
 }
 
 export type TaskGroup = {
@@ -113,29 +128,23 @@ export function actionIcon(action: UserAction): string {
   switch (action) {
     case 'read':
       return 'menu_book';
+    case 'play':
+      return 'play_arrow';
     case 'link':
       return 'link';
     case 'form':
       return 'keyboard';
-    case 'click':
-      return 'link';
-    case 'scrap':
-      return 'filter_list';
-    case 'copy':
-    case 'select':
+    case 'highlight':
       return 'ink_highlighter';
-    case 'manual':
-      return 'keyboard';
   }
 }
 
 export function actionLabel(action: UserAction): string {
-  if (action === 'select') return 'Highlight';
-  if (action === 'manual') return 'Manual';
+  if (action === 'form') return 'Type & select';
   return action.charAt(0).toUpperCase() + action.slice(1);
 }
 
-export const ENTRY_ACTIONS: UserAction[] = ['read', 'link', 'form', 'click', 'scrap', 'copy', 'select'];
+export const ENTRY_ACTIONS: UserAction[] = ['read', 'play', 'link', 'form', 'highlight'];
 
 export function filterIcon(filter: string): string {
   switch (filter) {
@@ -143,6 +152,8 @@ export function filterIcon(filter: string): string {
       return 'menu_book';
     case 'link':
       return 'link';
+    case 'play':
+      return 'play_arrow';
     case 'form':
       return 'keyboard';
     case 'highlights':

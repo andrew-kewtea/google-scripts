@@ -1,6 +1,6 @@
-import { filterExcerpts, matchPage } from '../../shared/scope.js';
+import { filterExcerpts, hostOf, matchPage } from '../../shared/scope.js';
 import type { HistoryFilter, PageExcerpt, SidenoteState, UserAction } from '../../shared/types.js';
-import { esc, formatWhen, icon } from '../format.js';
+import { clipText, esc, formatDay, formatWhen, icon, rowActs } from '../format.js';
 import { ENTRY_ACTIONS, actionIcon, actionLabel, filterIcon, liveExcerpts } from '../present.js';
 import type { Session } from '../session.js';
 import { anchor, menuBox, menuItem, menuOpen } from './menu.js';
@@ -8,8 +8,9 @@ import { anchor, menuBox, menuItem, menuOpen } from './menu.js';
 const FILTERS: { id: HistoryFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'read', label: 'Read' },
+  { id: 'play', label: 'Play' },
   { id: 'link', label: 'Links' },
-  { id: 'form', label: 'Inputs' },
+  { id: 'form', label: 'Type & select' },
   { id: 'highlights', label: 'Highlights' },
 ];
 
@@ -35,7 +36,7 @@ export function historySection(state: SidenoteState, session: Session): string {
         }).join(''),
       )
     : '';
-  const rows = items.map((row) => excerptRow(state, session, row, false)).join('');
+  const rows = items.map((row) => excerptRow(state, session, row, 'band')).join('');
   const draft = session.historyDraft ? historyDraft(state, session) : '';
   const empty = items.length === 0 && !session.historyDraft ? `<p class="empty">No history for this page.</p>` : '';
   const moreBtn = more ? `<button type="button" class="pill" data-action="show-more-history">Show more</button>` : '';
@@ -78,48 +79,48 @@ export function excerptModal(session: Session): string {
   </div>`;
 }
 
-export function excerptRow(state: SidenoteState, session: Session, row: PageExcerpt, showPage: boolean): string {
+export function excerptRow(state: SidenoteState, session: Session, row: PageExcerpt, layout: 'band' | 'line'): string {
   const editing = session.excerptEditing && session.selectedExcerptId === row.id;
-  return editing ? excerptEditor(state, session, row) : excerptView(state, session, row, showPage);
+  if (editing) return excerptEditor(state, session, row);
+  return layout === 'line' ? excerptLine(state, row) : excerptView(state, row);
 }
 
 function historyDraft(state: SidenoteState, session: Session): string {
-  return `<article class="hist hist-draft">
-    <div class="hist-icon">${icon(actionIcon(session.historyType))}</div>
-    <div class="hist-main">
-      <div class="hist-line">
-        ${dotButton('draft', Boolean(session.historyExcerpt.trim()))}
-        <input id="history-text" value="${esc(session.historyText)}" placeholder="Add to this page’s history…">
-      </div>
-      <div class="edit-line">
-        ${typeSelect(session.historyType)}
-        ${contextSelect(state, 'history-context', session.historyContextId)}
-      </div>
-      ${tagField(state, session.historyTagIds, 'history')}
-      <div class="btn-row">
-        <button type="button" class="btn" data-action="save-history">Save</button>
-        <button type="button" class="btn" data-action="cancel-history">Cancel</button>
-      </div>
+  return `<article class="note">
+    <div class="meta"><span>New</span><span class="vis-lock" title="Private">${icon('lock')}</span></div>
+    <div class="band-line">
+      <input id="history-text" value="${esc(session.historyText)}" placeholder="Add to this page’s history…">
+      ${typeSelect(session.historyType)}
+      ${dotButton('draft', Boolean(session.historyExcerpt.trim()))}
+    </div>
+    <div class="edit-line">
+      ${contextSelect(state, 'history-context', session.historyContextId)}
+      ${tagControls(state, session.historyTagIds, 'history')}
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn" data-action="save-history">Save</button>
+      <button type="button" class="btn" data-action="cancel-history">Cancel</button>
     </div>
   </article>`;
 }
 
 function excerptEditor(state: SidenoteState, session: Session, row: PageExcerpt): string {
-  return `<article class="hist hist-draft">
-    <div class="hist-icon" title="${esc(actionLabel(row.userAction))}">${icon(actionIcon(row.userAction))}</div>
-    <div class="hist-main">
-      <div class="hist-line">
-        ${dotButton(row.id, Boolean(row.excerpt?.trim() || (session.excerptModalId === row.id && session.excerptModalText.trim())))}
-        <input id="history-edit-text" value="${esc(session.historyEditText)}" aria-label="Summary">
-      </div>
-      <div class="meta faint">${esc(actionLabel(row.userAction))} · ${esc(formatWhen(row.createdAt, state.settings.timeZone))}</div>
+  const filled = Boolean(row.excerpt?.trim() || (session.excerptModalId === row.id && session.excerptModalText.trim()));
+  return `<article class="note">
+    <div class="meta"><span>${esc(formatWhen(row.updatedAt, state.settings.timeZone))}</span><span class="vis-lock" title="Private">${icon('lock')}</span></div>
+    <div class="band-line">
+      <input id="history-edit-text" value="${esc(session.historyEditText)}" aria-label="Summary">
+      <span class="trail" title="${esc(actionLabel(row.userAction))}">${icon(actionIcon(row.userAction))}</span>
+      ${dotButton(row.id, filled)}
+    </div>
+    <div class="edit-line">
       ${contextSelect(state, 'history-edit-context', session.historyEditContextId)}
-      ${tagField(state, session.historyEditTagIds, 'edit')}
-      <div class="btn-row">
-        <button type="button" class="btn" data-action="save-history-edit" data-id="${esc(row.id)}">Save</button>
-        <button type="button" class="btn" data-action="cancel-history-edit">Cancel</button>
-        <button type="button" class="icon-btn" data-action="delete-excerpt" data-id="${esc(row.id)}" title="Delete" aria-label="Delete">${icon('close')}</button>
-      </div>
+      ${tagControls(state, session.historyEditTagIds, 'edit')}
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn" data-action="save-history-edit" data-id="${esc(row.id)}">Save</button>
+      <button type="button" class="btn" data-action="cancel-history-edit">Cancel</button>
+      <button type="button" class="btn danger" data-action="delete-excerpt" data-id="${esc(row.id)}">Delete</button>
     </div>
   </article>`;
 }
@@ -147,7 +148,7 @@ function contextSelect(state: SidenoteState, id: string, current: string): strin
   return `<select id="${id}" aria-label="Context">${options}</select>`;
 }
 
-function tagField(state: SidenoteState, selected: string[], scope: 'history' | 'edit'): string {
+function tagControls(state: SidenoteState, selected: string[], scope: 'history' | 'edit'): string {
   const tags = state.tags.filter((tag) => !tag.deletedAt);
   const chips = selected
     .map((id) => tags.find((tag) => tag.id === id))
@@ -161,26 +162,35 @@ function tagField(state: SidenoteState, selected: string[], scope: 'history' | '
     .filter((tag) => !selected.includes(tag.id))
     .map((tag) => `<option value="${esc(tag.id)}">#${esc(tag.name)}</option>`)
     .join('');
-  return `<div class="edit-line">
-    <select id="${scope}-tag" aria-label="Add tag"><option value="">Add tag</option>${options}</select>
-  </div>
-  <div class="chips">${chips}</div>`;
+  return `<select id="${scope}-tag" aria-label="Add tag"><option value="">Add tag</option>${options}</select>${chips}`;
 }
 
-function excerptView(state: SidenoteState, session: Session, row: PageExcerpt, showPage: boolean): string {
-  const page = state.pages.find((item) => item.id === row.scope.pageId);
-  const where = showPage ? `<div class="meta faint ellipsis">${esc(page?.title || row.scope.url)}</div>` : '';
-  return `<article class="hist" data-action="edit-history" data-id="${esc(row.id)}">
-    <div class="hist-icon">${icon(actionIcon(row.userAction))}</div>
-    <div class="hist-main">
-      <div class="hist-line">
-        ${dotButton(row.id, Boolean(row.excerpt?.trim()))}
-        <span class="excerpt-text">${esc(row.text)}</span>
-      </div>
-      ${where}
+function excerptView(state: SidenoteState, row: PageExcerpt): string {
+  const context = state.contexts.find((item) => item.id === row.contextId && !item.deletedAt);
+  const tags = row.tagIds
+    .map((id) => state.tags.find((tag) => tag.id === id && !tag.deletedAt))
+    .filter((tag) => tag)
+    .map((tag) => ` #${esc(tag!.name)}`)
+    .join('');
+  return `<article class="note" data-action="edit-history" data-id="${esc(row.id)}">
+    <div class="meta"><span>${esc(formatWhen(row.updatedAt, state.settings.timeZone))}</span></div>
+    <div class="band-line">
+      <span class="note-text summary-line">${esc(row.text)}</span>
+      <span class="trail" title="${esc(actionLabel(row.userAction))}">${icon(actionIcon(row.userAction))}</span>
+      ${dotButton(row.id, Boolean(row.excerpt?.trim()))}
     </div>
-    <div class="hist-side">
-      <span class="muted">${esc(formatWhen(row.createdAt, state.settings.timeZone))}</span>
-    </div>
+    <div class="meta faint">${esc(context?.name ?? 'Uncategorized')}${tags}</div>
   </article>`;
+}
+
+function excerptLine(state: SidenoteState, row: PageExcerpt): string {
+  const page = state.pages.find((item) => item.id === row.scope.pageId);
+  const domain = page ? hostOf(page.url) : hostOf(row.scope.url);
+  const url = page?.url || row.scope.url;
+  return `<div class="line-row">
+    <span class="line-ico" title="${esc(actionLabel(row.userAction))}">${icon(actionIcon(row.userAction))}</span>
+    <span class="line-title"><span class="clip">${esc(clipText(row.text, 20))}</span>${dotButton(row.id, Boolean(row.excerpt?.trim()))}${rowActs(row.id, 'edit-history', url)}</span>
+    <span class="ellipsis">${esc(domain)}</span>
+    <span class="muted">${esc(formatDay(row.updatedAt || row.createdAt, state.settings.timeZone))}</span>
+  </div>`;
 }

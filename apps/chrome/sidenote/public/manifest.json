@@ -4,6 +4,7 @@
   "version": "0.2.0",
   "description": "Jot a note beside the page. Saved on this device until sign-in exists.",
   "permissions": ["storage", "scripting", "activeTab"],
+  "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background/serviceWorker.js",
     "type": "module"

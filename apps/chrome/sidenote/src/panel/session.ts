@@ -114,7 +114,7 @@ export function createSession(): Session {
     projectName: '',
     limitsOpen: false,
     limitsCollections: 10,
-    limitsNotes: 3,
+    limitsNotes: 10,
     limitsTasks: 10,
     accountEmail: '',
     accountPassword: '',

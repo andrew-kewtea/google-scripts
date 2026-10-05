@@ -26,7 +26,7 @@ export function notesSection(state: SidenoteState, session: Session): string {
       sortMenu,
     )}
   </div>`;
-  const rows = notes.map((note) => noteRow(state, session, note)).join('');
+  const rows = notes.map((note) => noteArticle(state, session, note)).join('');
   const editingNew = session.noteKey === 'new' ? noteEditor(state, session) : '';
   const empty = notes.length === 0 && session.noteKey !== 'new' ? `<p class="empty">No notes yet.</p>` : '';
   return `<section class="section">
@@ -40,38 +40,30 @@ export function notesSection(state: SidenoteState, session: Session): string {
   </section>`;
 }
 
-function noteRow(state: SidenoteState, session: Session, note: Note): string {
+export function noteArticle(state: SidenoteState, session: Session, note: Note): string {
   if (session.noteKey === note.id) return noteEditor(state, session, note);
-  const edited =
-    note.updatedAt - note.createdAt > 60_000
-      ? `<span class="faint">(edited ${esc(formatWhen(note.updatedAt, state.settings.timeZone))})</span>`
-      : '';
-  const collection = state.collections.find((item) => item.id === note.collectionId);
-  const keywords = note.tagIds
-    .map((id) => state.tags.find((tag) => tag.id === id && !tag.deletedAt))
-    .filter((tag) => tag)
-    .map((tag) => `<span>#${esc(tag!.name)}</span>`)
-    .join('');
+  const collection = state.collections.find((item) => item.id === note.collectionId && !item.deletedAt);
+  const keywords = tagNames(state, note.tagIds);
   const menu = visibilityMenu(state, session, note.id, note.visibility);
-  return `<article class="note">
+  return `<article class="note" data-action="edit-note" data-id="${esc(note.id)}">
     <div class="meta">
-      <span>${esc(formatWhen(note.createdAt, state.settings.timeZone))}</span>
-      ${edited}
+      <span>${esc(formatWhen(note.updatedAt, state.settings.timeZone))}</span>
       ${menu}
     </div>
-    <div class="note-text" data-action="edit-note" data-id="${esc(note.id)}">${esc(note.text)}</div>
-    <div class="meta faint">${esc(collection?.name ?? 'No collection')} ${keywords}</div>
+    <div class="note-text">${esc(note.text)}</div>
+    <div class="meta faint">${esc(collection?.name ?? 'Uncategorized')}${keywords}</div>
   </article>`;
 }
 
 function noteEditor(state: SidenoteState, session: Session, note?: Note): string {
   const collections = state.collections.filter((item) => !item.deletedAt);
-  const options = collections
-    .map(
+  const options = [
+    `<option value="" ${session.noteCollectionId ? '' : 'selected'}>Uncategorized</option>`,
+    ...collections.map(
       (item) =>
         `<option value="${esc(item.id)}" ${item.id === session.noteCollectionId ? 'selected' : ''}>${esc(item.name)}</option>`,
-    )
-    .join('');
+    ),
+  ].join('');
   const tags = state.tags.filter((tag) => !tag.deletedAt);
   const chips = session.noteTagIds
     .map((id) => tags.find((tag) => tag.id === id))
@@ -86,20 +78,29 @@ function noteEditor(state: SidenoteState, session: Session, note?: Note): string
     .map((tag) => `<option value="${esc(tag.id)}">#${esc(tag.name)}</option>`)
     .join('');
   const menu = visibilityMenu(state, session, note?.id ?? 'new', session.noteVisibility);
+  const when = note ? formatWhen(note.updatedAt, state.settings.timeZone) : 'New';
   return `<article class="note">
-    <div class="meta"><span>${note ? esc(formatWhen(note.createdAt, state.settings.timeZone)) : 'New'}</span>${menu}</div>
+    <div class="meta"><span>${esc(when)}</span>${menu}</div>
     <textarea id="note-text" placeholder="Jot down on the side…">${esc(session.noteText)}</textarea>
     <div class="edit-line">
       <select id="note-collection" aria-label="Collection">${options}</select>
       <select id="note-tag" aria-label="Add tag"><option value="">Add tag</option>${tagOptions}</select>
+      ${chips}
     </div>
-    <div class="chips">${chips}</div>
     <div class="btn-row">
       <button type="button" class="btn" data-action="save-note">Save</button>
       <button type="button" class="btn" data-action="cancel-note">Cancel</button>
       ${note ? `<button type="button" class="btn danger" data-action="delete-note" data-id="${esc(note.id)}">Delete</button>` : ''}
     </div>
   </article>`;
+}
+
+function tagNames(state: SidenoteState, ids: string[]): string {
+  return ids
+    .map((id) => state.tags.find((tag) => tag.id === id && !tag.deletedAt))
+    .filter((tag) => tag)
+    .map((tag) => ` #${esc(tag!.name)}`)
+    .join('');
 }
 
 function visibilityMenu(state: SidenoteState, session: Session, id: string, current: Visibility): string {

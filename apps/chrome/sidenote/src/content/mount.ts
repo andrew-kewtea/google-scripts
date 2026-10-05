@@ -12,11 +12,38 @@ function hostEl(): HTMLElement | null {
   return document.getElementById(HOST_ID);
 }
 
-function postPage(frame: HTMLIFrameElement): void {
-  frame.contentWindow?.postMessage(
-    { type: 'sidenote:page', url: location.href, title: document.title },
-    '*',
-  );
+let posted = '';
+
+function postPage(frame: HTMLIFrameElement, force = false): void {
+  const url = location.href;
+  const title = document.title;
+  const key = `${url}\n${title}`;
+  if (!force && key === posted) return;
+  posted = key;
+  frame.contentWindow?.postMessage({ type: 'sidenote:page', url, title }, '*');
+}
+
+function watchPage(frame: HTMLIFrameElement): void {
+  const publish = (): void => {
+    postPage(frame);
+    window.setTimeout(() => postPage(frame), 400);
+  };
+  window.addEventListener('sidenote:location', publish);
+  window.addEventListener('popstate', publish);
+  window.addEventListener('hashchange', publish);
+  window.addEventListener('pageshow', publish);
+  const title = document.querySelector('title');
+  if (title) {
+    new MutationObserver(() => postPage(frame)).observe(title, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  }
+}
+
+function reportOpen(open: boolean): void {
+  chrome.runtime.sendMessage({ type: 'sidenote:panel', open }).catch(() => undefined);
 }
 
 function panelSrc(): string {
@@ -91,12 +118,13 @@ function ensure(): HTMLIFrameElement {
   frame.title = 'sidenote';
   paint(frame, frameChrome(false));
   frame.src = panelSrc();
-  frame.addEventListener('load', () => postPage(frame));
+  frame.addEventListener('load', () => postPage(frame, true));
+  watchPage(frame);
   host.append(shade, frame);
   document.documentElement.append(host);
   window.addEventListener('message', (event) => {
     if (event.source !== frame.contentWindow) return;
-    const data = event.data as { type?: string; width?: number } | null;
+    const data = event.data as { type?: string; width?: number; url?: string } | null;
     if (!data) return;
     if (data.type === 'sidenote:layout' && typeof data.width === 'number' && host.dataset.open === '1') {
       const next = `${data.width}px`;
@@ -109,6 +137,13 @@ function ensure(): HTMLIFrameElement {
       }
     }
     if (data.type === 'sidenote:close') setOpen(false);
+    if (data.type === 'sidenote:open-url' && typeof data.url === 'string') {
+      const url = data.url;
+      chrome.runtime.sendMessage({ type: 'sidenote:goto', url }, (response) => {
+        if (chrome.runtime.lastError) return;
+        if (!response || response.ok !== true) location.assign(url);
+      });
+    }
   });
   owned = frame;
   return frame;
@@ -145,8 +180,9 @@ function setOpen(open: boolean): void {
   host.dataset.open = open ? '1' : '0';
   if (frame instanceof HTMLIFrameElement) {
     paint(frame, frameChrome(open));
-    if (open) postPage(frame);
+    if (open) postPage(frame, true);
   }
+  reportOpen(open);
 }
 
 function boot(): void {
@@ -167,7 +203,18 @@ const mark = window as unknown as Record<string, boolean>;
 if (!mark[FLAG]) {
   mark[FLAG] = true;
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (!message || message.type !== 'sidenote:toggle') return;
+    if (!message) return;
+    if (message.type === 'sidenote:ping') {
+      sendResponse({ ok: true });
+      return;
+    }
+    if (message.type === 'sidenote:location') {
+      const frame = hostEl()?.querySelector('iframe');
+      if (frame instanceof HTMLIFrameElement) postPage(frame, true);
+      sendResponse({ ok: true });
+      return;
+    }
+    if (message.type !== 'sidenote:toggle') return;
     toggle();
     sendResponse({ ok: true });
   });

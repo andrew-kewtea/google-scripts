@@ -1,6 +1,6 @@
 import type { SidenoteState, Visibility } from '../../shared/types.js';
 import { esc, formatBytes, icon, visIcon, visLabel } from '../format.js';
-import { stateBytes } from '../dataService.js';
+import { stateBytes, tagUsage } from '../dataService.js';
 import type { Session } from '../session.js';
 import { anchor, menuBox, menuItem, menuOpen } from './menu.js';
 
@@ -88,19 +88,22 @@ function tagsBlock(state: SidenoteState, session: Session): string {
   const open = state.ui.openSettings.includes('tags');
   const rows = tags
     .map((tag) => {
-      const count =
-        state.notes.filter((note) => !note.deletedAt && note.tagIds.includes(tag.id)).length +
-        state.excerpts.filter((row) => !row.deletedAt && row.tagIds.includes(tag.id)).length +
-        state.pages.filter((page) => page.tags.includes(tag.name)).length;
+      const count = tagUsage(state, tag.id);
+      const locked = count > 0;
       return `<div class="set-row">
         <span>#${esc(tag.name)}</span>
         <span class="muted">${count}</span>
         ${tagVisibility(state, session, tag.id, tag.visibility)}
+        <button type="button" class="icon-btn row-x" data-action="delete-tag" data-id="${esc(tag.id)}" title="${locked ? 'Tag is in use' : 'Delete'}" aria-label="Delete" ${locked ? 'disabled' : ''}>${icon('close')}</button>
       </div>`;
     })
     .join('');
   const adder = session.newTag
-    ? `<input id="tag-name" value="${esc(session.tagName)}" placeholder="Tag name · Enter">`
+    ? `<div class="set-add">
+        <input id="tag-name" value="${esc(session.tagName)}" placeholder="Tag name">
+        <button type="button" class="btn" data-action="save-tag">Save</button>
+        <button type="button" class="btn" data-action="cancel-tag">Cancel</button>
+      </div>`
     : '';
   const plus = `<button type="button" class="icon-btn" data-action="add-tag" title="New tag" aria-label="New tag">${icon('add')}</button>`;
   return sub('tags', 'Tags', `<span class="count">${tags.length}</span>`, plus, `${adder}${rows}`, open);
@@ -123,11 +126,16 @@ function groupsBlock(state: SidenoteState, session: Session): string {
           ${opt('inactive', 'inactive', group.status)}
           ${opt('archived', 'archived', group.status)}
         </select>
+        <button type="button" class="icon-btn row-x" title="Delete is not available yet" aria-label="Delete" disabled>${icon('close')}</button>
       </div>`;
     })
     .join('');
   const adder = session.newGroup
-    ? `<input id="group-name" value="${esc(session.groupName)}" placeholder="Group name · Enter">`
+    ? `<div class="set-add">
+        <input id="group-name" value="${esc(session.groupName)}" placeholder="Group name">
+        <button type="button" class="btn" data-action="save-group">Save</button>
+        <button type="button" class="btn" data-action="cancel-group">Cancel</button>
+      </div>`
     : '';
   const plus = `<button type="button" class="icon-btn" data-action="add-group" title="New group" aria-label="New group" ${full ? 'disabled' : ''}>${icon('add')}</button>`;
   return sub('groups', 'User groups', `<span class="count">${groups.length} / 3</span>`, plus, `${adder}${rows}`, open);

@@ -1,6 +1,6 @@
 import type { SidenoteState, Task, TaskStatus } from '../../shared/types.js';
-import { esc, formatDue, icon } from '../format.js';
-import { taskGroups } from '../present.js';
+import { esc, formatDue, icon, rowActs } from '../format.js';
+import { listWindow, taskGroups } from '../present.js';
 import type { Session } from '../session.js';
 import { anchor, menuBox, menuItem, menuOpen } from './menu.js';
 
@@ -14,8 +14,6 @@ export function tasksSection(state: SidenoteState, session: Session): string {
   const open = state.ui.sections.tasks;
   const groups = taskGroups(state);
   const flat = groups.flatMap((group) => group.tasks);
-  const shownIds = new Set(flat.slice(0, Math.max(state.settings.display.tasks, state.ui.tasksShown)).map((task) => task.id));
-  const more = flat.length > shownIds.size;
   const sort = state.ui.taskSort;
   const menu = menuOpen(session, 'task-sort', 'tasks')
     ? menuBox(
@@ -27,9 +25,8 @@ export function tasksSection(state: SidenoteState, session: Session): string {
     : '';
   const blocks = groups
     .map((group) => {
-      const tasks = group.tasks.filter((task) => shownIds.has(task.id));
-      if (tasks.length === 0 && group.id === 'uncategorized') return '';
-      return projectBlock(state, session, group.id, group.name, group.color, tasks);
+      if (group.tasks.length === 0 && group.id === 'uncategorized') return '';
+      return projectBlock(state, session, group.id, group.name, group.color, group.tasks);
     })
     .join('');
   const creator = session.newTask ? newTaskForm(state, session) : '';
@@ -50,7 +47,6 @@ export function tasksSection(state: SidenoteState, session: Session): string {
         <button type="button" class="mini" data-action="open-projects" title="Projects" aria-label="Projects">${icon('tune')}</button>
       </div>
       ${creator}${blocks}
-      ${more ? `<button type="button" class="pill" data-action="show-more-tasks">Show more</button>` : ''}
     </div>
     ${session.projectsOpen ? projectsModal(state, session) : ''}
   </section>`;
@@ -65,7 +61,15 @@ function projectBlock(
   tasks: Task[],
 ): string {
   const open = state.ui.openProjects.includes(id);
-  const rows = tasks.map((task) => (session.taskKey === task.id ? taskEditor(state, session, task) : taskRow(task))).join('');
+  const window = listWindow(tasks.length, state.ui.taskItemsShown[id], state.settings.display.tasks);
+  const rows = tasks
+    .slice(0, window.count)
+    .map((task) => (session.taskKey === task.id ? taskEditor(state, session, task) : taskRow(task)))
+    .join('');
+  const more =
+    open && window.more
+      ? `<button type="button" class="pill" data-action="show-more-project-tasks" data-id="${esc(id)}">Show more</button>`
+      : '';
   return `<div class="sub">
     <button type="button" class="sub-head" data-action="toggle-project" data-id="${esc(id)}" aria-expanded="${open}">
       <span class="dot" style="background:${esc(color)}"></span>
@@ -73,26 +77,28 @@ function projectBlock(
       <span class="count">${tasks.length}</span>
       ${icon(open ? 'expand_less' : 'expand_more')}
     </button>
-    <div class="sub-body${open ? ' open' : ''}"><div>${rows}</div></div>
+    <div class="sub-body${open ? ' open' : ''}"><div>${open ? rows : ''}${more}</div></div>
   </div>`;
 }
 
 function taskRow(task: Task): string {
   const [label, color] = STATUS[task.status];
-  return `<button type="button" class="task" data-action="edit-task" data-id="${esc(task.id)}">
+  return `<div class="task">
     <span class="task-no">${task.localNo}</span>
-    <span class="ellipsis">${esc(task.title)}</span>
+    <span class="line-title"><span class="ellipsis">${esc(task.title)}</span>${rowActs(task.id, 'edit-task', task.refUrl ?? '')}</span>
     <span class="status"><span class="dot" style="background:${color}"></span>${esc(label)}</span>
     <span class="muted">${esc(formatDue(task.due))}</span>
-  </button>`;
+  </div>`;
 }
 
 function taskEditor(state: SidenoteState, session: Session, task: Task): string {
   return `<div class="task-edit" data-action="stop">
     <input id="task-title" value="${esc(session.taskTitle)}" aria-label="Task title">
     ${projectSelect(state, 'task-project', session.taskProjectId)}
-    ${statusSelect(session.taskStatus)}
-    <input id="task-due" type="date" value="${esc(session.taskDue)}" aria-label="Due">
+    <div class="edit-line">
+      ${statusSelect(session.taskStatus)}
+      <input id="task-due" type="date" value="${esc(session.taskDue)}" aria-label="Due">
+    </div>
     <div class="btn-row">
       <button type="button" class="btn" data-action="save-task" data-id="${esc(task.id)}">Save</button>
       <button type="button" class="btn" data-action="cancel-task">Cancel</button>

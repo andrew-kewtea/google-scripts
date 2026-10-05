@@ -1,8 +1,8 @@
 export type Visibility = 'private' | 'public' | `group:${string}`;
 
-export type UserAction = 'read' | 'link' | 'form' | 'click' | 'scrap' | 'copy' | 'select' | 'manual';
+export type UserAction = 'read' | 'play' | 'link' | 'form' | 'highlight';
 
-export type HistoryFilter = 'all' | 'read' | 'link' | 'form' | 'highlights';
+export type HistoryFilter = 'all' | 'read' | 'play' | 'link' | 'form' | 'highlights';
 
 export type TaskStatus = 'active' | 'inactive' | 'draft';
 
@@ -38,7 +38,7 @@ export type Note = {
   pageId: string;
   text: string;
   visibility: Visibility;
-  collectionId: string;
+  collectionId: string | null;
   tagIds: string[];
   anchor?: { selector: string; offset: number; textQuote?: string };
   createdAt: number;
@@ -152,6 +152,8 @@ export type UiState = {
   tasksShown: number;
   contextsShown: number;
   contextItemsShown: Record<string, number>;
+  collectionItemsShown: Record<string, number>;
+  taskItemsShown: Record<string, number>;
   openCollections: string[];
   openContexts: string[];
   openProjects: string[];
@@ -177,7 +179,7 @@ export type SidenoteState = {
 export type NoteInput = {
   text: string;
   visibility: Visibility;
-  collectionId: string;
+  collectionId: string | null;
   tagIds: string[];
 };
 

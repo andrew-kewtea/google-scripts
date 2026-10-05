@@ -57,8 +57,9 @@ function aboutEdit(session: Session, tags: string[]): string {
 function pageTree(state: SidenoteState, session: Session): string {
   if (!session.url) return '';
   const root = buildPageTree(
-    state.pages.map((page) => ({ url: page.url, notes: noteCount(state, page.id) })),
+    state.pages.map((page) => ({ url: page.url, notes: noteCount(state, page.id), title: page.title })),
     session.url,
+    session.title,
   );
   if (!root) return '';
   const rows = visibleTreeRows(root, state.ui.treeOpen ?? [], session.url)
@@ -68,7 +69,7 @@ function pageTree(state: SidenoteState, session: Session): string {
         : '<span class="tree-chev"></span>';
       return `<div class="tree-row${row.current ? ' here' : ''}" style="padding-left:${4 + row.depth * 16}px">
         ${chevron}
-        <a href="${safeHref(row.href)}" target="_blank" rel="noopener">${esc(row.label)}</a>
+        <a href="${safeHref(row.href)}" target="_blank" rel="noopener" title="${esc(row.hint)}">${esc(row.label)}</a>
         ${row.count ? `<span class="muted">${row.count}</span>` : ''}
       </div>`;
     })

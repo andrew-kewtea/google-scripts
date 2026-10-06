@@ -16,6 +16,7 @@ export function renderPanel(state: SidenoteState, session: Session): string {
   const second = expanded
     ? `<div class="col col-2">
         <div class="bar">
+          <button type="button" class="refresh-${session.signedIn ? 'live' : 'local'}" data-action="refresh-panel" title="Refresh" aria-label="Refresh">${icon('refresh')}</button>
           <button type="button" data-action="close-second" title="Close this column" aria-label="Close this column">${icon('close')}</button>
         </div>
         ${collectionsSection(state, session)}

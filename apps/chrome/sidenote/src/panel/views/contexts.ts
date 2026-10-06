@@ -1,6 +1,6 @@
 import type { SidenoteState } from '../../shared/types.js';
 import { esc, icon } from '../format.js';
-import { contextGroups, listWindow, taskGroups } from '../present.js';
+import { contextGroups, taskGroups } from '../present.js';
 import type { Session } from '../session.js';
 import { anchor, menuBox, menuItem, menuOpen } from './menu.js';
 import { excerptRow } from './history.js';
@@ -8,8 +8,6 @@ import { excerptRow } from './history.js';
 export function contextsSection(state: SidenoteState, session: Session): string {
   const open = state.ui.sections.contexts;
   const groups = contextGroups(state);
-  const window = listWindow(groups.length, state.ui.contextsShown, state.settings.display.collections);
-  const shown = groups.slice(0, window.count);
   const sort = state.ui.contextSort;
   const menu = menuOpen(session, 'context-sort', 'contexts')
     ? menuBox(
@@ -19,9 +17,15 @@ export function contextsSection(state: SidenoteState, session: Session): string 
           menuItem('set-context-sort', 'data-sort="size"', 'By size', sort === 'size'),
       )
     : '';
-  const list = shown.map((group) => contextBlock(state, session, group.id)).join('');
+  const list = groups.map((group) => contextBlock(state, session, group.id)).join('');
   const adder = session.newContext
-    ? `<input id="context-name" value="${esc(session.contextName)}" placeholder="Context name · Enter">`
+    ? `<div class="editor">
+        <input id="context-name" value="${esc(session.contextName)}" placeholder="Context name" aria-label="Context name">
+        <div class="btn-row">
+          <button type="button" class="btn" data-action="create-context">Create</button>
+          <button type="button" class="btn" data-action="cancel-context">Cancel</button>
+        </div>
+      </div>`
     : '';
   return `<section class="section">
     <button type="button" class="sec-head" data-action="toggle-section" data-section="contexts" aria-expanded="${open}">
@@ -39,7 +43,6 @@ export function contextsSection(state: SidenoteState, session: Session): string 
         )}
       </div>
       ${adder}${list}
-      ${window.more ? `<button type="button" class="pill" data-action="show-more-contexts">Show more</button>` : ''}
     </div>
   </section>`;
 }
@@ -81,17 +84,15 @@ function contextBlock(state: SidenoteState, session: Session, id: string): strin
   const group = contextGroups(state).find((item) => item.id === id);
   if (!group) return '';
   const open = state.ui.openContexts.includes(id);
-  const window = listWindow(group.items.length, state.ui.contextItemsShown[id], state.settings.display.notesPerCollection);
-  const items = group.items.slice(0, window.count);
+  const items = group.items;
+  const remove = group.context
+    ? `<button type="button" class="icon-btn" data-action="delete-context" data-id="${esc(id)}" title="Remove" aria-label="Remove">${icon('close')}</button>`
+    : '';
   const tune =
     group.context
       ? `<button type="button" class="icon-btn" data-action="open-context-tasks" data-id="${esc(id)}" title="Tasks" aria-label="Tasks">${icon('tune')}</button>`
       : '';
   const rows = open ? items.map((row) => excerptRow(state, session, row, 'line')).join('') : '';
-  const moreBtn =
-    open && window.more
-      ? `<button type="button" class="pill" data-action="show-more-context-items" data-id="${esc(id)}">Show more</button>`
-      : '';
   const color = group.context ? '#7fa3d6' : '#b3ada1';
   return `<div class="sub">
     <div class="context-head">
@@ -100,9 +101,10 @@ function contextBlock(state: SidenoteState, session: Session, id: string): strin
         <span class="sub-name">${esc(group.name)}</span>
         <span class="count">${group.items.length}</span>
       </button>
+      ${remove}
       ${tune}
       <button type="button" class="icon-btn" data-action="toggle-context" data-id="${esc(id)}" title="${open ? 'Collapse' : 'Expand'}" aria-label="${open ? 'Collapse' : 'Expand'}">${icon(open ? 'expand_less' : 'expand_more')}</button>
     </div>
-    <div class="sub-body${open ? ' open' : ''}"><div class="context-items">${rows}${moreBtn}</div></div>
+    <div class="sub-body${open ? ' open' : ''}"><div class="context-items">${rows}</div></div>
   </div>`;
 }

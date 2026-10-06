@@ -2,7 +2,7 @@ import { tagSelectOptions } from '../../lib/tags.js';
 import { filterExcerpts, hostOf, matchPage } from '../../shared/scope.js';
 import type { HistoryFilter, PageExcerpt, SidenoteState, UserAction } from '../../shared/types.js';
 import { clipText, esc, formatDay, formatWhen, icon, rowActs } from '../format.js';
-import { ENTRY_ACTIONS, actionIcon, actionLabel, filterIcon, liveExcerpts } from '../present.js';
+import { ENTRY_ACTIONS, actionIcon, actionLabel, filterIcon } from '../present.js';
 import type { Session } from '../session.js';
 import { anchor, menuBox, menuItem, menuOpen } from './menu.js';
 
@@ -20,7 +20,7 @@ export function historySection(state: SidenoteState, session: Session): string {
   const page = session.url ? matchPage(state, session.url) : undefined;
   const all = page ? filterExcerpts(state, page.id, 'all') : [];
   const filtered = page ? filterExcerpts(state, page.id, state.ui.historyFilter) : [];
-  const { items, more } = liveExcerpts(filtered, state.ui.historyShown);
+  const items = [...filtered].sort((a, b) => b.createdAt - a.createdAt);
   const filter = state.ui.historyFilter;
   const menu = menuOpen(session, 'history-filter', 'history')
     ? menuBox(
@@ -40,7 +40,6 @@ export function historySection(state: SidenoteState, session: Session): string {
   const rows = items.map((row) => excerptRow(state, session, row, 'band')).join('');
   const draft = session.historyDraft ? historyDraft(state, session) : '';
   const empty = items.length === 0 && !session.historyDraft ? `<p class="empty">No history for this page.</p>` : '';
-  const moreBtn = more ? `<button type="button" class="pill" data-action="show-more-history">Show more</button>` : '';
   return `<section class="section">
     <button type="button" class="sec-head" data-action="toggle-section" data-section="history" aria-expanded="${open}">
       <span class="sec-title">History</span><span class="count">${filtered.length}</span>
@@ -57,7 +56,7 @@ export function historySection(state: SidenoteState, session: Session): string {
           menu,
         )}
       </div>
-      ${draft}${rows}${empty}${moreBtn}
+      ${draft}${rows}${empty}
     </div>
   </section>`;
 }

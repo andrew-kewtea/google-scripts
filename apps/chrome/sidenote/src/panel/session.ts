@@ -48,6 +48,9 @@ export type Session = {
   limitsOpen: boolean;
   limitsCollections: number;
   limitsNotes: number;
+  limitsContexts: number;
+  limitsHistory: number;
+  limitsProjects: number;
   limitsTasks: number;
   accountEmail: string;
   accountPassword: string;
@@ -127,6 +130,9 @@ export function createSession(): Session {
     limitsOpen: false,
     limitsCollections: 10,
     limitsNotes: 10,
+    limitsContexts: 10,
+    limitsHistory: 10,
+    limitsProjects: 10,
     limitsTasks: 10,
     accountEmail: '',
     accountPassword: '',

@@ -1,7 +1,7 @@
 import { GOOGLE_CLIENT_ID } from '../lib/api.js';
 import { apiRequest } from '../lib/http.js';
-import { absorbPull, applyServerId, isTempId, listQuery, type OutboxEntry, type PullBag } from '../lib/sync.js';
-import { AUTH_KEY, OUTBOX_KEY, STORAGE_KEY, SYNC_PERIOD_MINUTES, SYNCED_KEY, type SidenoteState } from '../shared/types.js';
+import { absorbPull, applyCreatedTaskStatus, applyServerId, isTempId, listQuery, restoreCollectionDelete, reusedCreate, serverIdOf, type OutboxEntry, type PullBag } from '../lib/sync.js';
+import { AUTH_KEY, NOTICE_KEY, OUTBOX_KEY, STORAGE_KEY, SYNC_PERIOD_MINUTES, SYNCED_KEY, type SidenoteState } from '../shared/types.js';
 import type { AuthRecord } from '../lib/auth.js';
 
 const ALARM = 'sidenote-sync';
@@ -31,6 +31,7 @@ export async function runSync(request: { reason?: string; entity?: string; page?
   const authBag = await chrome.storage.local.get(AUTH_KEY);
   let auth = authBag[AUTH_KEY] as AuthRecord | undefined;
   if (!auth?.accessToken || !auth.refreshToken) return;
+  auth = await ensureUname(auth);
   const stored = await chrome.storage.local.get([OUTBOX_KEY, STORAGE_KEY]);
   let state = stored[STORAGE_KEY] as SidenoteState | undefined;
   let queue = (Array.isArray(stored[OUTBOX_KEY]) ? stored[OUTBOX_KEY] : []) as OutboxEntry[];
@@ -49,15 +50,47 @@ export async function runSync(request: { reason?: string; entity?: string; page?
       break;
     }
     if (result.status < 200 || result.status >= 300) {
+      if (item.op === 'delete' && result.status === 404) {
+        queue = queue.slice(1);
+        continue;
+      }
+      if (item.op === 'delete' && item.entity === 'collection' && result.status === 409 && state) {
+        const noteIds = Array.isArray(item.body.noteIds)
+          ? item.body.noteIds.filter((noteId): noteId is string => typeof noteId === 'string')
+          : [];
+        state = restoreCollectionDelete(state, item.localId, noteIds);
+        await chrome.storage.local.set({ [NOTICE_KEY]: 'Journal collection has edition pages' });
+        queue = queue.slice(1);
+        continue;
+      }
       failed.push(item);
       queue = queue.slice(1);
       continue;
     }
-    const serverId = idOf(result.body);
+    const serverId = serverIdOf(item.entity, result.body);
+    if (serverId && item.entity === 'note_url_ref' && state) {
+      const noteId = item.body.note_id == null ? '' : String(item.body.note_id);
+      state = {
+        ...state,
+        notes: state.notes.map((note) => (note.id === noteId ? { ...note, urlRefId: serverId } : note)),
+      };
+    }
     if (serverId && isTempId(item.localId)) {
       const applied = applyServerId(state, queue.slice(1), item.localId, serverId);
       state = applied.state;
       queue = applied.outbox;
+      if (item.entity === 'task') state = applyCreatedTaskStatus(state, serverId, result.body);
+      if (item.entity === 'tag' && !reusedCreate(result.body) && item.body.access && item.body.access !== 'private') {
+        queue = [
+          {
+            ...item,
+            op: 'update',
+            localId: serverId,
+            body: { ...item.body, id: Number(serverId) },
+          },
+          ...queue,
+        ];
+      }
     } else {
       queue = queue.slice(1);
     }
@@ -83,7 +116,7 @@ async function pullWindows(auth: AuthRecord, request: { reason?: string; entity?
   const pageFor = (entity: string) => (request.reason === 'more' && request.entity === entity ? request.page ?? 2 : 1);
   const specs: { key: keyof PullBag; entity: string; path: string }[] = [
     { key: 'tags', entity: 'tags', path: listQuery('tags', { since }) },
-    { key: 'groups', entity: 'groups', path: '/users/me/journal-access-groups' },
+    { key: 'groups', entity: 'groups', path: listQuery('groups', { since, page: pageFor('groups') }) },
     { key: 'preferences', entity: 'settings', path: '/users/me/preferences' },
     { key: 'urls', entity: 'urls', path: listQuery('urls', { since, page: pageFor('urls') }) },
     { key: 'urlAbouts', entity: 'url-abouts', path: listQuery('url-abouts', { since, page: pageFor('url-abouts') }) },
@@ -109,7 +142,7 @@ async function pullWindows(auth: AuthRecord, request: { reason?: string; entity?
     if (result.auth) auth = result.auth;
     if (result.status >= 200 && result.status < 300) bag[spec.key] = result.body;
   }
-  const merged = absorbPull(state, bag, keep);
+  const merged = absorbPull(state, bag, keep, { incremental: since !== undefined });
   await chrome.storage.local.set({
     [AUTH_KEY]: auth,
     [STORAGE_KEY]: merged,
@@ -128,13 +161,38 @@ function includeSpec(entity: string, request: { reason?: string; entity?: string
 
 function pathFor(item: OutboxEntry, uname: string | undefined): string {
   if (item.entity === 'settings') return '/users/me/preferences';
+  const owner = journalOwner(uname);
   if (item.entity === 'collection') {
-    const owner = uname || 'me';
-    return item.op === 'create' ? `/journal/${encodeURIComponent(owner)}/collections` : `/journal/${encodeURIComponent(owner)}/collections/${item.localId}`;
+    const root = `/journals/${owner}/collections`;
+    return item.op === 'create' ? root : `${root}/${encodeURIComponent(item.localId)}`;
+  }
+  if (item.entity === 'note') {
+    const root = `/journals/${owner}/notes`;
+    return item.op === 'create' ? root : `${root}/${encodeURIComponent(item.localId)}`;
+  }
+  if (item.entity === 'group' && item.op !== 'create') {
+    const handle = typeof item.body.uname === 'string' && item.body.uname ? item.body.uname : item.localId;
+    return `/usergroups/${encodeURIComponent(handle)}`;
   }
   const root = rootFor(item.entity);
   if (item.op === 'create') return root;
   return `${root}/${item.localId}`;
+}
+
+function journalOwner(uname: string | undefined): string {
+  const bare = (uname || '').replace(/^@/, '');
+  return bare ? `@${encodeURIComponent(bare)}` : '@me';
+}
+
+async function ensureUname(auth: AuthRecord): Promise<AuthRecord> {
+  if (auth.uname) return auth;
+  const result = await apiRequest(fetch, auth, '/auth/me');
+  if (result.auth) auth = result.auth;
+  if (result.status >= 200 && result.status < 300 && result.body && typeof result.body === 'object' && 'uname' in result.body) {
+    const uname = (result.body as { uname?: unknown }).uname;
+    if (typeof uname === 'string' && uname) return { ...auth, uname };
+  }
+  return auth;
 }
 
 function rootFor(entity: OutboxEntry['entity']): string {
@@ -144,7 +202,7 @@ function rootFor(entity: OutboxEntry['entity']): string {
     case 'url_about':
       return '/url-abouts/';
     case 'note':
-      return '/notes/';
+      return '/journals/@me/notes';
     case 'note_url_ref':
       return '/note-url-refs/';
     case 'context':
@@ -162,12 +220,6 @@ function rootFor(entity: OutboxEntry['entity']): string {
     default:
       return '/notes/';
   }
-}
-
-function idOf(body: unknown): string {
-  if (!body || typeof body !== 'object' || !('id' in body)) return '';
-  const id = (body as { id?: unknown }).id;
-  return id == null ? '' : String(id);
 }
 
 export function googleAuthUrl(redirectUri: string): string {

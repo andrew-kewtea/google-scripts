@@ -1,6 +1,6 @@
 import type { SidenoteState, Task, TaskStatus } from '../../shared/types.js';
 import { esc, formatDue, icon, rowActs } from '../format.js';
-import { listWindow, taskGroups } from '../present.js';
+import { taskGroups } from '../present.js';
 import type { Session } from '../session.js';
 import { anchor, menuBox, menuItem, menuOpen } from './menu.js';
 
@@ -61,23 +61,24 @@ function projectBlock(
   tasks: Task[],
 ): string {
   const open = state.ui.openProjects.includes(id);
-  const window = listWindow(tasks.length, state.ui.taskItemsShown[id], state.settings.display.tasks);
   const rows = tasks
-    .slice(0, window.count)
     .map((task) => (session.taskKey === task.id ? taskEditor(state, session, task) : taskRow(task)))
     .join('');
-  const more =
-    open && window.more
-      ? `<button type="button" class="pill" data-action="show-more-project-tasks" data-id="${esc(id)}">Show more</button>`
-      : '';
+  const remove =
+    id === 'uncategorized'
+      ? ''
+      : `<button type="button" class="icon-btn" data-action="delete-project" data-id="${esc(id)}" title="Remove" aria-label="Remove">${icon('close')}</button>`;
   return `<div class="sub">
-    <button type="button" class="sub-head" data-action="toggle-project" data-id="${esc(id)}" aria-expanded="${open}">
-      <span class="dot" style="background:${esc(color)}"></span>
-      <span class="sub-name">${esc(name)}</span>
-      <span class="count">${tasks.length}</span>
-      ${icon(open ? 'expand_less' : 'expand_more')}
-    </button>
-    <div class="sub-body${open ? ' open' : ''}"><div>${open ? rows : ''}${more}</div></div>
+    <div class="context-head">
+      <button type="button" class="context-name" data-action="toggle-project" data-id="${esc(id)}" aria-expanded="${open}">
+        <span class="dot" style="background:${esc(color)}"></span>
+        <span class="sub-name">${esc(name)}</span>
+        <span class="count">${tasks.length}</span>
+      </button>
+      ${remove}
+      <button type="button" class="icon-btn" data-action="toggle-project" data-id="${esc(id)}" title="${open ? 'Collapse' : 'Expand'}" aria-label="${open ? 'Collapse' : 'Expand'}">${icon(open ? 'expand_less' : 'expand_more')}</button>
+    </div>
+    <div class="sub-body${open ? ' open' : ''}"><div>${open ? rows : ''}</div></div>
   </div>`;
 }
 
@@ -158,7 +159,10 @@ function projectsModal(state: SidenoteState, session: Session): string {
       </div>
       <div class="modal-body">
         ${rows}
-        <input id="project-name" value="${esc(session.projectName)}" placeholder="New project · Enter">
+        <div class="set-add">
+          <input id="project-name" value="${esc(session.projectName)}" placeholder="Project name" aria-label="Project name">
+          <button type="button" class="btn" data-action="create-project">Create</button>
+        </div>
         <p class="hint">Tasks of a deleted project move to Uncategorized.</p>
       </div>
       <div class="btn-row modal-actions">

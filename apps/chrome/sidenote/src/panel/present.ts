@@ -71,6 +71,29 @@ export function notesInCollection(state: SidenoteState, collectionId: string): N
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+export type CollectionGroup = {
+  id: string;
+  name: string;
+  collection: Collection | null;
+  notes: Note[];
+};
+
+export function collectionGroups(state: SidenoteState): CollectionGroup[] {
+  const groups: CollectionGroup[] = liveCollections(state).map((collection) => ({
+    id: collection.id,
+    name: collection.name,
+    collection,
+    notes: notesInCollection(state, collection.id),
+  }));
+  const loose = state.notes
+    .filter((note) => !note.deletedAt && !note.collectionId)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+  if (loose.length) {
+    groups.push({ id: 'uncategorized', name: 'Uncategorized', collection: null, notes: loose });
+  }
+  return groups;
+}
+
 export function pageSize(setting: number): number {
   if (!Number.isFinite(setting)) return 10;
   return Math.min(10, Math.max(1, Math.round(setting)));

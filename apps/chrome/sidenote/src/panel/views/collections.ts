@@ -1,7 +1,7 @@
 import { hostOf } from '../../shared/scope.js';
 import type { SidenoteState } from '../../shared/types.js';
 import { clipText, esc, formatDay, icon, rowActs, visIcon } from '../format.js';
-import { listWindow, liveCollections, notesInCollection } from '../present.js';
+import { collectionGroups, liveCollections } from '../present.js';
 import type { Session } from '../session.js';
 import { anchor, menuBox, menuItem, menuOpen } from './menu.js';
 import { noteArticle } from './notes.js';
@@ -9,8 +9,6 @@ import { noteArticle } from './notes.js';
 export function collectionsSection(state: SidenoteState, session: Session): string {
   const open = state.ui.sections.collections;
   const rows = liveCollections(state);
-  const window = listWindow(rows.length, state.ui.collectionsShown, state.settings.display.collections);
-  const shown = rows.slice(0, window.count);
   const sort = state.ui.collectionSort;
   const menu = menuOpen(session, 'col-sort', 'collections')
     ? menuBox(
@@ -20,9 +18,15 @@ export function collectionsSection(state: SidenoteState, session: Session): stri
           menuItem('set-col-sort', 'data-sort="size"', 'By size', sort === 'size'),
       )
     : '';
-  const list = shown.map((collection) => collectionBlock(state, session, collection.id)).join('');
+  const list = collectionGroups(state).map((group) => collectionBlock(state, session, group.id)).join('');
   const adder = session.newCollection
-    ? `<input id="collection-name" value="${esc(session.collectionName)}" placeholder="Collection name · Enter">`
+    ? `<div class="editor">
+        <input id="collection-name" value="${esc(session.collectionName)}" placeholder="Collection name" aria-label="Collection name">
+        <div class="btn-row">
+          <button type="button" class="btn" data-action="create-collection">Create</button>
+          <button type="button" class="btn" data-action="cancel-collection">Cancel</button>
+        </div>
+      </div>`
     : '';
   return `<section class="section">
     <button type="button" class="sec-head" data-action="toggle-section" data-section="collections" aria-expanded="${open}">
@@ -40,19 +44,16 @@ export function collectionsSection(state: SidenoteState, session: Session): stri
         )}
       </div>
       ${adder}${list}
-      ${window.more ? `<button type="button" class="pill" data-action="show-more-collections">Show more</button>` : ''}
     </div>
   </section>`;
 }
 
 function collectionBlock(state: SidenoteState, session: Session, id: string): string {
-  const collection = state.collections.find((item) => item.id === id);
-  if (!collection || collection.deletedAt) return '';
+  const group = collectionGroups(state).find((item) => item.id === id);
+  if (!group) return '';
   const open = state.ui.openCollections.includes(id);
-  const notes = notesInCollection(state, id);
-  const window = listWindow(notes.length, state.ui.collectionItemsShown[id], state.settings.display.notesPerCollection);
+  const notes = group.notes;
   const entries = notes
-    .slice(0, window.count)
     .map((note) => {
       if (session.noteKey === note.id) return noteArticle(state, session, note);
       const page = state.pages.find((item) => item.id === note.pageId);
@@ -64,17 +65,19 @@ function collectionBlock(state: SidenoteState, session: Session, id: string): st
       </div>`;
     })
     .join('');
-  const more =
-    open && window.more
-      ? `<button type="button" class="pill" data-action="show-more-collection-items" data-id="${esc(id)}">Show more</button>`
-      : '';
+  const remove = group.collection
+    ? `<button type="button" class="icon-btn" data-action="delete-collection" data-id="${esc(id)}" title="Remove" aria-label="Remove">${icon('close')}</button>`
+    : '';
   return `<div class="sub">
-    <button type="button" class="sub-head" data-action="toggle-collection" data-id="${esc(id)}" aria-expanded="${open}">
-      <span class="dot" style="background:#c9a35a"></span>
-      <span class="sub-name">${esc(collection.name)}</span>
-      <span class="count">${notes.length}</span>
-      ${icon(open ? 'expand_less' : 'expand_more')}
-    </button>
-    <div class="sub-body${open ? ' open' : ''}"><div>${open ? entries : ''}${more}</div></div>
+    <div class="context-head">
+      <button type="button" class="context-name" data-action="toggle-collection" data-id="${esc(id)}" aria-expanded="${open}">
+        <span class="dot" style="background:#c9a35a"></span>
+        <span class="sub-name">${esc(group.name)}</span>
+        <span class="count">${notes.length}</span>
+      </button>
+      ${remove}
+      <button type="button" class="icon-btn" data-action="toggle-collection" data-id="${esc(id)}" title="${open ? 'Collapse' : 'Expand'}" aria-label="${open ? 'Collapse' : 'Expand'}">${icon(open ? 'expand_less' : 'expand_more')}</button>
+    </div>
+    <div class="sub-body${open ? ' open' : ''}"><div>${open ? entries : ''}</div></div>
   </div>`;
 }

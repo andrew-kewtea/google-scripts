@@ -451,7 +451,7 @@ test('old history kinds collapse, unused tags delete, and a note can stay uncate
   assert.equal(state.notes.find((note) => note.text === 'loose note')?.collectionId, null);
 });
 
-test('creates stop once local storage reaches 9MB', async () => {
+test('creates stop once local storage reaches 20MB', async () => {
   const service = createDataService(memoryPort());
   let state = await service.load();
   state = await service.createNote(state, {
@@ -493,6 +493,35 @@ test('creates stop once local storage reaches 9MB', async () => {
   );
   const again = await blocked.load();
   assert.equal(again.notes.some((note) => note.text === 'nope'), false);
+});
+
+test('deleting a collection keeps the notes and clears their collection', async () => {
+  const service = createDataService(memoryPort());
+  let state = await service.load();
+  state = await service.createCollection(state, 'Inbox');
+  const collectionId = state.collections.find((item) => !item.deletedAt)?.id ?? '';
+  state = await service.createNote(state, {
+    url: 'https://example.com/kept',
+    title: 'Kept',
+    text: 'stay',
+    visibility: 'private',
+    collectionId,
+    tagIds: [],
+  });
+  state = await service.deleteCollection(state, collectionId);
+  assert.ok(state.collections.find((item) => item.id === collectionId)?.deletedAt);
+  assert.equal(state.notes.find((note) => note.text === 'stay')?.collectionId, null);
+});
+
+test('the collections limit keeps the newest collection', async () => {
+  const service = createDataService(memoryPort());
+  let state = await service.load();
+  state = await service.saveDisplay(state, { ...state.settings.display, collections: 1 });
+  state = await service.createCollection(state, 'Old');
+  state = await service.createCollection(state, 'New');
+  const live = state.collections.filter((item) => !item.deletedAt);
+  assert.equal(live.length, 1);
+  assert.equal(live[0].name, 'New');
 });
 
 test('panel reads the page address and title baked into its iframe query', () => {

@@ -133,6 +133,9 @@ a:hover { text-decoration: underline; }
   justify-content: center;
 }
 .bar button:hover { background: rgba(255, 255, 255, 0.1); }
+.bar button.refresh-local { color: #b7b1a8; }
+.bar button.refresh-live { color: #6fbf73; }
+.bar button svg { width: 22px; height: 22px; fill: currentColor; display: block; }
 .bar .ms { font-size: 21px; }
 
 .section { display: contents; }
@@ -479,7 +482,7 @@ select { height: 30px; padding: 0 8px; background: transparent; max-width: 180px
 .account-form { display: flex; flex-direction: column; gap: 8px; max-width: 300px; padding-top: 8px; }
 .account-error { margin: 0; color: #8d3b32; font-size: 12.5px; line-height: 1.4; }
 .account-form input { height: 34px; padding: 0 10px; }
-.account-actions { display: flex; align-items: center; gap: 8px; }
+.account-actions, .account-links { display: flex; align-items: center; gap: 12px; }
 .text-link { margin-left: auto; border: 0; background: none; color: var(--link); font-size: 13px; padding: 0; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .hint { margin: 0; color: var(--muted); font-size: 12.5px; }

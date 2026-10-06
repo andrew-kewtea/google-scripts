@@ -1,3 +1,4 @@
+import { applyDisplayWindow } from '../lib/cacheWindow.js';
 import { hostOf, matchPage, scopeKey } from '../shared/scope.js';
 import {
   CREATE_BLOCK_BYTES,
@@ -63,6 +64,8 @@ export type DataService = {
   createContext(state: SidenoteState, name: string): Promise<SidenoteState>;
   setContextTasks(state: SidenoteState, id: string, taskIds: string[]): Promise<SidenoteState>;
   createCollection(state: SidenoteState, name: string): Promise<SidenoteState>;
+  deleteCollection(state: SidenoteState, id: string): Promise<SidenoteState>;
+  deleteContext(state: SidenoteState, id: string): Promise<SidenoteState>;
   createTask(
     state: SidenoteState,
     input: { title: string; projectId: string | null; due?: string; refUrl?: string },
@@ -132,7 +135,7 @@ export function createEmptyState(): SidenoteState {
       language: 'en',
       timeZone: 'Asia/Seoul',
       theme: 'system',
-      display: { collections: 10, notesPerCollection: 10, tasks: 10 },
+      display: defaultDisplay(),
       accountEmail: '',
     },
     ui: {
@@ -169,15 +172,19 @@ export function createEmptyState(): SidenoteState {
 
 export function createDataService(
   port: StoragePort,
-  hooks?: { onCommitted?: (before: SidenoteState, after: SidenoteState) => void },
+  hooks?: {
+    onCommitted?: (before: SidenoteState, after: SidenoteState) => void;
+    pinnedIds?: () => Promise<Iterable<string>>;
+  },
 ): DataService {
   let tracking = false;
 
   async function commit(next: SidenoteState): Promise<SidenoteState> {
     const before = tracking ? await port.get() : null;
-    await port.set(next);
-    if (tracking && before) hooks?.onCommitted?.(before, next);
-    return next;
+    const stored = applyDisplayWindow(next, new Set(hooks?.pinnedIds ? await hooks.pinnedIds() : []));
+    await port.set(stored);
+    if (tracking && before) hooks?.onCommitted?.(before, stored);
+    return stored;
   }
 
   function room(state: SidenoteState): void {
@@ -193,7 +200,9 @@ export function createDataService(
         return created;
       }
       const normalized = normalizeState(existing);
-      const ready = normalized.changed ? await commit(normalized.state) : normalized.state;
+      const windowed = applyDisplayWindow(normalized.state, new Set());
+      const changed = normalized.changed || JSON.stringify(windowed) !== JSON.stringify(normalized.state);
+      const ready = changed ? await commit(windowed) : normalized.state;
       tracking = true;
       return ready;
     },
@@ -386,6 +395,32 @@ export function createDataService(
       return commit({ ...state, collections: [row, ...state.collections] });
     },
 
+    async deleteCollection(state, id) {
+      const now = Date.now();
+      return commit({
+        ...state,
+        collections: state.collections.map((collection) =>
+          collection.id === id ? { ...collection, deletedAt: now, updatedAt: now } : collection,
+        ),
+        notes: state.notes.map((note) =>
+          note.collectionId === id ? { ...note, collectionId: null, updatedAt: now } : note,
+        ),
+      });
+    },
+
+    async deleteContext(state, id) {
+      const now = Date.now();
+      return commit({
+        ...state,
+        contexts: state.contexts.map((context) =>
+          context.id === id ? { ...context, deletedAt: now, taskIds: [], updatedAt: now } : context,
+        ),
+        excerpts: state.excerpts.map((row) =>
+          row.contextId === id ? { ...row, contextId: null, updatedAt: now } : row,
+        ),
+      });
+    },
+
     async createTask(state, input) {
       const title = input.title.trim();
       if (!title) return state;
@@ -430,6 +465,9 @@ export function createDataService(
       return commit({
         ...state,
         tasks: state.tasks.map((task) => (task.id === id ? { ...task, deletedAt: now, updatedAt: now } : task)),
+        contexts: state.contexts.map((context) =>
+          context.taskIds.includes(id) ? { ...context, taskIds: context.taskIds.filter((taskId) => taskId !== id) } : context,
+        ),
       });
     },
 
@@ -485,7 +523,10 @@ export function createDataService(
           display: {
             collections: clampLimit(display.collections),
             notesPerCollection: clampLimit(display.notesPerCollection),
-            tasks: clampLimit(display.tasks),
+            contexts: clampLimit(display.contexts),
+            historyPerContext: clampLimit(display.historyPerContext),
+            projects: clampLimit(display.projects),
+            tasksPerProject: clampLimit(display.tasksPerProject),
           },
         },
       });
@@ -714,14 +755,53 @@ export function normalizeState(raw: SidenoteState): { state: SidenoteState; chan
   if (tags.length !== (stored.tags ?? []).length) changed = true;
   const urlRules = stored.urlRules ?? [];
   if (!stored.urlRules) changed = true;
+  const legacy = stored.settings?.display as DisplayLimits & { tasks?: number };
+  const display = {
+    collections: clampLimit(legacy?.collections ?? 10),
+    notesPerCollection: clampLimit(legacy?.notesPerCollection ?? 10),
+    contexts: clampLimit(legacy?.contexts ?? 10),
+    historyPerContext: clampLimit(legacy?.historyPerContext ?? 10),
+    projects: clampLimit(legacy?.projects ?? 10),
+    tasksPerProject: clampLimit(legacy?.tasksPerProject ?? legacy?.tasks ?? 10),
+  };
+  if (
+    legacy?.contexts === undefined ||
+    legacy.historyPerContext === undefined ||
+    legacy.projects === undefined ||
+    legacy.tasksPerProject === undefined ||
+    legacy.tasks !== undefined
+  ) {
+    changed = true;
+  }
   return {
     changed,
-    state: { ...stored, pages, notes, excerpts, tags, contexts: stored.contexts ?? [], urlRules, ui },
+    state: {
+      ...stored,
+      pages,
+      notes,
+      excerpts,
+      tags,
+      contexts: stored.contexts ?? [],
+      urlRules,
+      ui,
+      settings: { ...stored.settings, display },
+    },
   };
 }
 
 function nextLocalNo(tasks: Task[]): number {
   return tasks.reduce((max, task) => Math.max(max, task.localNo), 0) + 1;
+}
+
+export function defaultDisplay(): DisplayLimits {
+  return {
+    collections: 10,
+    notesPerCollection: 10,
+    contexts: 10,
+    historyPerContext: 10,
+    projects: 10,
+    tasksPerProject: 10,
+  };
 }
 
 function clampLimit(value: number): number {

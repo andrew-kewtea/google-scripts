@@ -4,11 +4,11 @@ import type { SectionKey, SidenoteState, UserAction, Visibility } from '../share
 import { GOOGLE_CLIENT_ID } from '../lib/api.js';
 import { AuthError, loginWithGoogleCode, loginWithPassword, logoutAuth, requestPasswordReset, signupWithPassword, type AuthRecord } from '../lib/auth.js';
 import { apiRequest } from '../lib/http.js';
-import { nextListPage } from '../lib/sync.js';
+import { isTempId } from '../lib/sync.js';
 import { suggestPath, tagSelectOptions } from '../lib/tags.js';
 import { googleAuthUrl } from '../background/syncWorker.js';
-import { clearAuth, saveAuth, setReauth } from './chromeStorage.js';
-import { ENTRY_ACTIONS, expandShown } from './present.js';
+import { clearAuth, loadAuth, saveAuth, setReauth } from './chromeStorage.js';
+import { ENTRY_ACTIONS } from './present.js';
 import type { DataService } from './dataService.js';
 import { nextColor, QuotaError } from './dataService.js';
 import { panelWidth, renderPanel } from './render.js';
@@ -16,6 +16,7 @@ import { createSession, pageContextFromSearch, type Session } from './session.js
 
 export type PanelHandle = {
   replace(next: SidenoteState): void;
+  notify(message: string): void;
 };
 
 function contextDead(error: unknown): boolean {
@@ -46,7 +47,7 @@ export function startPanel(
   session.url = page.url;
   session.title = page.title;
   const root = document.getElementById('app');
-  if (!root) return { replace() {} };
+  if (!root) return { replace() {}, notify() {} };
   const app = root;
 
   app.addEventListener('click', (event) => {
@@ -158,6 +159,10 @@ export function startPanel(
         else applyExpanded(state.ui.expanded);
         return;
       }
+      draw();
+    },
+    notify(message: string) {
+      session.notice = message;
       draw();
     },
   };
@@ -387,8 +392,6 @@ export function startPanel(
         session.noteTagIds = session.noteTagIds.filter((item) => item !== (el.dataset.tag ?? ''));
         break;
       case 'show-more-history':
-        state = await service.setUi(state, { historyShown: state.ui.historyShown + 10 });
-        askNextPage('web-histories');
         break;
       case 'add-history':
         session.historyDraft = true;
@@ -421,17 +424,17 @@ export function startPanel(
       case 'toggle-context':
         state = await service.setUi(state, { openContexts: toggleId(state.ui.openContexts, id) });
         break;
-      case 'show-more-contexts':
-        state = await service.setUi(state, { contextsShown: expandShown(state.settings.display.collections) });
-        askNextPage('contexts');
+      case 'create-context':
+        if (session.contextName.trim()) state = await service.createContext(state, session.contextName);
+        session.newContext = false;
+        session.contextName = '';
         break;
-      case 'show-more-context-items':
-        state = await service.setUi(state, {
-          contextItemsShown: {
-            ...state.ui.contextItemsShown,
-            [id]: expandShown(state.settings.display.notesPerCollection),
-          },
-        });
+      case 'cancel-context':
+        session.newContext = false;
+        session.contextName = '';
+        break;
+      case 'delete-context':
+        state = await service.deleteContext(state, id);
         break;
       case 'open-context-tasks': {
         const context = state.contexts.find((item) => item.id === id && !item.deletedAt);
@@ -466,17 +469,18 @@ export function startPanel(
       case 'toggle-collection':
         state = await service.setUi(state, { openCollections: toggleId(state.ui.openCollections, id) });
         break;
-      case 'show-more-collections':
-        state = await service.setUi(state, { collectionsShown: expandShown(state.settings.display.collections) });
-        askNextPage('collections');
+      case 'create-collection':
+        if (session.collectionName.trim()) state = await service.createCollection(state, session.collectionName);
+        session.newCollection = false;
+        session.collectionName = '';
         break;
-      case 'show-more-collection-items':
-        state = await service.setUi(state, {
-          collectionItemsShown: {
-            ...state.ui.collectionItemsShown,
-            [id]: expandShown(state.settings.display.notesPerCollection),
-          },
-        });
+      case 'cancel-collection':
+        session.newCollection = false;
+        session.collectionName = '';
+        break;
+      case 'delete-collection':
+        if (!(await collectionDeleteAllowed(id))) break;
+        state = await service.deleteCollection(state, id);
         break;
       case 'set-task-sort':
         if (el.dataset.sort === 'recency' || el.dataset.sort === 'size') {
@@ -523,13 +527,6 @@ export function startPanel(
         state = await service.setUi(state, { openProjects: toggleId(state.ui.openProjects, id) });
         break;
       case 'show-more-project-tasks':
-        state = await service.setUi(state, {
-          taskItemsShown: {
-            ...state.ui.taskItemsShown,
-            [id]: expandShown(state.settings.display.tasks),
-          },
-        });
-        askNextPage('tasks');
         break;
       case 'open-projects':
         session.projectsOpen = true;
@@ -538,6 +535,11 @@ export function startPanel(
         break;
       case 'close-projects':
         session.projectsOpen = false;
+        break;
+      case 'create-project':
+        if (session.projectName.trim()) state = await service.createProject(state, session.projectName);
+        session.projectName = '';
+        session.focusId = 'project-name';
         break;
       case 'cycle-color': {
         const project = state.projects.find((item) => item.id === id);
@@ -554,7 +556,10 @@ export function startPanel(
         session.limitsOpen = true;
         session.limitsCollections = state.settings.display.collections;
         session.limitsNotes = state.settings.display.notesPerCollection;
-        session.limitsTasks = state.settings.display.tasks;
+        session.limitsContexts = state.settings.display.contexts;
+        session.limitsHistory = state.settings.display.historyPerContext;
+        session.limitsProjects = state.settings.display.projects;
+        session.limitsTasks = state.settings.display.tasksPerProject;
         break;
       case 'close-limits':
         session.limitsOpen = false;
@@ -563,7 +568,10 @@ export function startPanel(
         state = await service.saveDisplay(state, {
           collections: session.limitsCollections,
           notesPerCollection: session.limitsNotes,
-          tasks: session.limitsTasks,
+          contexts: session.limitsContexts,
+          historyPerContext: session.limitsHistory,
+          projects: session.limitsProjects,
+          tasksPerProject: session.limitsTasks,
         });
         session.limitsOpen = false;
         break;
@@ -594,13 +602,18 @@ export function startPanel(
         session.accountView = 'form';
         session.accountError = '';
         break;
-      case 'refresh-cloud':
+      case 'refresh-panel': {
+        if (!session.signedIn) break;
+        const snapshot = JSON.stringify(state);
         try {
-          chrome.runtime.sendMessage({ type: 'sidenote:sync', reason: 'manual' });
+          await chrome.runtime.sendMessage({ type: 'sidenote:sync', reason: 'manual' });
         } catch {
           session.notice = 'Refresh could not start.';
+          break;
         }
+        if (JSON.stringify(state) !== snapshot) return;
         break;
+      }
       case 'open-account':
         session.reauth = false;
         void setReauth(false);
@@ -659,14 +672,6 @@ export function startPanel(
     if (target.id === 'pattern-input') {
       if (session.patternInput.trim()) session.patterns.push(session.patternInput.trim());
       session.patternInput = '';
-    } else if (target.id === 'context-name') {
-      state = await service.createContext(state, session.contextName);
-      session.newContext = false;
-      session.contextName = '';
-    } else if (target.id === 'collection-name') {
-      state = await service.createCollection(state, session.collectionName);
-      session.newCollection = false;
-      session.collectionName = '';
     } else if (target.id === 'project-name') {
       state = await service.createProject(state, session.projectName);
       session.projectName = '';
@@ -706,7 +711,7 @@ export function startPanel(
     }
     if (target instanceof HTMLSelectElement && target.dataset.setting) {
       const key = target.dataset.setting;
-      if (key === 'language' && (target.value === 'en' || target.value === 'ko' || target.value === 'ja')) {
+      if (key === 'language' && (target.value === 'en' || target.value === 'ko')) {
         state = await service.saveSettings(state, { language: target.value });
       } else if (key === 'timeZone') {
         state = await service.saveSettings(state, { timeZone: target.value });
@@ -742,11 +747,32 @@ export function startPanel(
     }
   }
 
-  function askNextPage(entity: string): void {
-    if (!session.signedIn) return;
-    const page = nextListPage(session.cloudPage[entity] ?? 1);
-    session.cloudPage[entity] = page;
-    void chrome.runtime.sendMessage({ type: 'sidenote:sync', reason: 'more', entity, page });
+  async function collectionDeleteAllowed(id: string): Promise<boolean> {
+    if (!session.signedIn || isTempId(id)) return true;
+    const current = await loadAuth();
+    if (!current?.accessToken) return true;
+    const bare = (current.uname || '').replace(/^@/, '');
+    const owner = bare ? `@${encodeURIComponent(bare)}` : '@me';
+    try {
+      const result = await apiRequest(fetch, current, `/journals/${owner}/collections/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (result.auth) auth = result.auth;
+      if (result.reauth) {
+        auth = null;
+        session.signedIn = false;
+        session.reauth = true;
+        await clearAuth();
+        await setReauth(true);
+      }
+      if (result.status === 409) {
+        session.notice = 'Journal collection has edition pages';
+        return false;
+      }
+    } catch {
+      return true;
+    }
+    return true;
   }
 
   async function loadTagSuggestions(query: string, redraw = true): Promise<void> {
@@ -922,6 +948,15 @@ export function startPanel(
     });
     assignNumber('limits-notes', (value) => {
       session.limitsNotes = value;
+    });
+    assignNumber('limits-contexts', (value) => {
+      session.limitsContexts = value;
+    });
+    assignNumber('limits-history', (value) => {
+      session.limitsHistory = value;
+    });
+    assignNumber('limits-projects', (value) => {
+      session.limitsProjects = value;
     });
     assignNumber('limits-tasks', (value) => {
       session.limitsTasks = value;

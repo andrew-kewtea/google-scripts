@@ -4,7 +4,7 @@
   "name": "sidenote",
   "version": "0.2.0",
   "description": "Jot a note beside the page. Local until you sign in, then synced to kchloe.",
-  "permissions": ["storage", "scripting", "activeTab", "identity", "alarms"],
+  "permissions": ["storage", "unlimitedStorage", "scripting", "activeTab", "identity", "alarms"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background/serviceWorker.js",

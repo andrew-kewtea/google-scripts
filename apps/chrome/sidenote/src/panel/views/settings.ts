@@ -1,4 +1,4 @@
-import type { SidenoteState, Visibility } from '../../shared/types.js';
+import { LOCAL_QUOTA_BYTES, type SidenoteState, type Visibility } from '../../shared/types.js';
 import { esc, formatBytes, icon, visIcon, visLabel } from '../format.js';
 import { stateBytes, tagUsage } from '../dataService.js';
 import type { Session } from '../session.js';
@@ -42,7 +42,6 @@ function generalBlock(state: SidenoteState, session: Session): string {
       <select id="set-language" data-setting="language">
         ${opt('en', 'English', settings.language)}
         ${opt('ko', '한국어', settings.language)}
-        ${opt('ja', '日本語', settings.language)}
       </select>
     </label>
     <label class="field">Time zone
@@ -69,11 +68,16 @@ function accountBlock(state: SidenoteState, session: Session): string {
   const meta = session.signedIn
     ? `<span class="count">${esc(session.authEmail || 'Signed in')}</span>`
     : '<span class="count">Local</span>';
-  const body = session.signedIn ? accountSignedIn() : accountSignedOut(state, session);
-  const sync = session.signedIn
-    ? `<button type="button" class="icon-btn" data-action="refresh-cloud" title="Sync" aria-label="Sync">${icon('sync')}</button>`
-    : '';
-  return sub('account', 'Account', meta, sync, body, open);
+  const body = `${storageMeter(state)}${session.signedIn ? accountSignedIn() : accountSignedOut(session)}`;
+  return sub('account', 'Account', meta, '', body, open);
+}
+
+function storageMeter(state: SidenoteState): string {
+  const used = stateBytes(state);
+  const ratio = Math.min(100, (used / LOCAL_QUOTA_BYTES) * 100);
+  return `<p class="meta">storage use</p>
+    <div class="usage"><div style="width:${ratio}%"></div></div>
+    <div class="meta">This device <span>${esc(formatBytes(used))} / 20 MB</span></div>`;
 }
 
 function accountSignedIn(): string {
@@ -83,9 +87,7 @@ function accountSignedIn(): string {
     </div>`;
 }
 
-function accountSignedOut(state: SidenoteState, session: Session): string {
-  const used = stateBytes(state);
-  const ratio = Math.min(100, (used / (10 * 1024 * 1024)) * 100);
+function accountSignedOut(session: Session): string {
   if (session.accountView === 'reset') {
     return `<div class="account-form">
       <p class="hint">${esc(`If an account exists for ${session.accountEmail}, a password-reset link is on its way.`)}</p>
@@ -101,16 +103,9 @@ function accountSignedOut(state: SidenoteState, session: Session): string {
   const loginTab = session.accountTab === 'login';
   const form = loginTab ? loginFields(session) : signupFields(session);
   const error = session.accountError ? `<p class="account-error">${esc(session.accountError)}</p>` : '';
-  return `<div class="usage"><div style="width:${ratio}%"></div></div>
-    <div class="meta">This device <span>${esc(formatBytes(used))}</span></div>
-    <div class="account-tabs">
-      <button type="button" class="btn${loginTab ? '' : ' ghost'}" data-action="account-tab" data-tab="login">Log in</button>
-      <button type="button" class="btn${loginTab ? ' ghost' : ''}" data-action="account-tab" data-tab="signup">Sign up</button>
-    </div>
-    <div class="account-form">
+  return `<div class="account-form">
       ${form}
       ${error}
-      <button type="button" class="btn google" data-action="login-google">${icon('login')} Continue with Google</button>
     </div>`;
 }
 
@@ -118,10 +113,12 @@ function loginFields(session: Session): string {
   const type = session.showPassword ? 'text' : 'password';
   return `<input id="account-email" type="email" value="${esc(session.accountEmail)}" placeholder="Email" aria-label="Email" autocomplete="username">
     <input id="account-password" type="${type}" value="${esc(session.accountPassword)}" placeholder="Password" aria-label="Password" autocomplete="current-password">
-    <div class="account-actions">
-      <button type="button" class="btn" data-action="login">Log in</button>
-      <button type="button" class="text-link" data-action="toggle-password">${session.showPassword ? 'Hide' : 'Show'}</button>
+    <button type="button" class="text-link" data-action="toggle-password">${session.showPassword ? 'Hide' : 'Show'}</button>
+    <button type="button" class="btn" data-action="login">Log in</button>
+    <button type="button" class="btn google" data-action="login-google">${icon('login')} Continue with Google</button>
+    <div class="account-links">
       <button type="button" class="text-link" data-action="forgot-password">Forgot password?</button>
+      <button type="button" class="text-link" data-action="account-tab" data-tab="signup">Create account</button>
     </div>`;
 }
 
@@ -132,9 +129,10 @@ function signupFields(session: Session): string {
     <input id="account-password" type="${type}" value="${esc(session.accountPassword)}" placeholder="At least 8 characters" aria-label="Password" autocomplete="new-password">
     <input id="account-password2" type="${type}" value="${esc(session.accountPassword2)}" placeholder="Re-enter your password" aria-label="Confirm password" autocomplete="new-password">
     <label class="check"><input id="account-eula" type="checkbox" ${session.agreeEula ? 'checked' : ''}> I agree to the End User License Agreement and Privacy Policy.</label>
+    <button type="button" class="text-link" data-action="toggle-password">${session.showPassword ? 'Hide' : 'Show'}</button>
     <div class="account-actions">
       <button type="button" class="btn" data-action="signup">Create account</button>
-      <button type="button" class="text-link" data-action="toggle-password">${session.showPassword ? 'Hide' : 'Show'}</button>
+      <button type="button" class="text-link" data-action="account-tab" data-tab="login">Log in</button>
     </div>`;
 }
 
@@ -220,9 +218,12 @@ function limitsModal(session: Session): string {
         <button type="button" data-action="close-limits" aria-label="Close">${icon('close')}</button>
       </div>
       <div class="modal-body">
-        ${limitField('limits-collections', 'Collections shown', session.limitsCollections)}
+        ${limitField('limits-collections', 'Collections shown max', session.limitsCollections)}
         ${limitField('limits-notes', 'Notes per collection max', session.limitsNotes)}
-        ${limitField('limits-tasks', 'Tasks shown', session.limitsTasks)}
+        ${limitField('limits-contexts', 'Contexts shown max', session.limitsContexts)}
+        ${limitField('limits-history', 'History per context max', session.limitsHistory)}
+        ${limitField('limits-projects', 'Projects shown max', session.limitsProjects)}
+        ${limitField('limits-tasks', 'Tasks per project max', session.limitsTasks)}
       </div>
       <div class="btn-row modal-actions">
         <button type="button" class="btn" data-action="save-limits">Save</button>

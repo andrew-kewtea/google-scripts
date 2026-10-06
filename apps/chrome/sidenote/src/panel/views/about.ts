@@ -14,7 +14,7 @@ export function aboutSection(state: SidenoteState, session: Session): string {
   const names = session.aboutEditing
     ? []
     : (page?.tagIds ?? []).map((id) => state.tags.find((tag) => tag.id === id)?.name).filter((name): name is string => Boolean(name));
-  const body = session.aboutEditing ? aboutEdit(state, session) : aboutView(title, url, names, session.signedIn);
+  const body = session.aboutEditing ? aboutEdit(state, session) : aboutView(title, url, names);
   return `<section class="section">
     <button type="button" class="sec-head" data-action="toggle-section" data-section="about" aria-expanded="${open}">
       <span class="sec-title">About</span>
@@ -28,15 +28,11 @@ export function aboutSection(state: SidenoteState, session: Session): string {
   ${session.patternsOpen ? patternModal(session) : ''}`;
 }
 
-function aboutView(title: string, url: string, tags: string[], signedIn: boolean): string {
+function aboutView(title: string, url: string, tags: string[]): string {
   const chips = tags.map((tag) => `<span class="chip">#${esc(tag)}</span>`).join('');
-  const refresh = signedIn
-    ? `<button type="button" class="mini" data-action="refresh-cloud" title="Refresh" aria-label="Refresh">${icon('refresh')}</button>`
-    : '';
   return `<div class="about-view" data-action="edit-about">
     <div class="about-title-row">
       <div class="about-title">${esc(title)}</div>
-      ${refresh}
     </div>
     <div class="url-row">
       <span class="muted ellipsis">${esc(url || 'Open a page to take a note')}</span>

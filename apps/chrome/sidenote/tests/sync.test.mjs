@@ -7,7 +7,6 @@ import {
   appendOutbox,
   applyServerId,
   listQuery,
-  reusedCreate,
   mergeWinner,
   nextListPage,
   noteFromRemote,
@@ -54,8 +53,7 @@ test('a new note queues url, url about, note, and note url ref', () => {
   assert.equal(plan[2].body.collection_slug, 'tmp_col');
   assert.match(plan[2].body.page_date, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal('access_level' in plan[2].body, false);
-  assert.equal(plan[3].body.collection_slug, 'tmp_col');
-  assert.equal('collection_id' in plan[3].body, false);
+  assert.equal(plan[3].body.collection_id, 'tmp_col');
 });
 
 test('a note payload without a url ref is not cached', () => {
@@ -77,50 +75,13 @@ test('a temporary id becomes the server id and collection links follow', () => {
       updatedAt: 1,
     },
   ];
-  const outbox = [{ id: '1', entity: 'note_url_ref', op: 'create', localId: 'tmp_ref', body: { note_id: 'tmp_note', collection_slug: 'tmp_col' }, updatedAt: 1 }];
+  const outbox = [{ id: '1', entity: 'note_url_ref', op: 'create', localId: 'tmp_ref', body: { note_id: 'tmp_note', collection_id: 'tmp_col' }, updatedAt: 1 }];
   const applied = applyServerId(state, outbox, 'tmp_note', '42');
   assert.equal(applied.state.notes[0].id, '42');
   assert.equal(applied.outbox[0].body.note_id, '42');
   const collections = applyServerId(applied.state, applied.outbox, 'tmp_col', '7');
   assert.equal(collections.state.notes[0].collectionId, '7');
-  assert.equal(collections.outbox[0].body.collection_slug, '7');
-});
-
-test('a reused server id keeps the existing row and moves local links onto it', () => {
-  const state = createEmptyState();
-  state.collections = [
-    { id: 'test', name: 'cloud', visibility: 'private', updatedAt: 5 },
-    { id: 'tmp_col', name: 'test', visibility: 'public', updatedAt: 9 },
-  ];
-  state.notes = [
-    {
-      id: 'n1',
-      pageId: 'p',
-      text: 'a',
-      visibility: 'private',
-      collectionId: 'tmp_col',
-      tagIds: [],
-      createdAt: 1,
-      updatedAt: 1,
-    },
-  ];
-  state.contexts = [
-    { id: '8', name: 'reading', taskIds: ['t1'], updatedAt: 5 },
-    { id: 'tmp_ctx', name: 'reading', taskIds: ['tmp_task'], updatedAt: 9 },
-  ];
-  const applied = applyServerId(state, [], 'tmp_col', 'test');
-  assert.equal(applied.state.collections.length, 1);
-  assert.equal(applied.state.collections[0].name, 'cloud');
-  assert.equal(applied.state.notes[0].collectionId, 'test');
-  const contexts = applyServerId(applied.state, [], 'tmp_ctx', '8');
-  assert.equal(contexts.state.contexts.length, 1);
-  assert.deepEqual(contexts.state.contexts[0].taskIds.sort(), ['t1', 'tmp_task']);
-});
-
-test('an older create response is a reused row', () => {
-  assert.equal(reusedCreate({ id: 4, created_at: 1_700_000_000 }, 1_800_000_000_000), true);
-  assert.equal(reusedCreate({ id: 4, created_at: Math.floor(Date.now() / 1000) }), false);
-  assert.equal(reusedCreate({ collection: { id: 'test', created_at: 10 } }, 1_000_000_000_000), true);
+  assert.equal(collections.outbox[0].body.collection_id, '7');
 });
 
 test('the newer timestamp wins and a delete wins', () => {
@@ -183,63 +144,4 @@ test('a 10 minute pull adds last_updated_atFrom', () => {
   const params = new URLSearchParams(listQuery('web-histories', { since: 1_700_000_000 }).split('?')[1]);
   assert.equal(params.get('last_updated_atFrom'), '1700000000');
   assert.equal(params.get('size'), '20');
-});
-
-test('deleting a collection clears note links without patching the notes', () => {
-  const before = createEmptyState();
-  before.collections = [{ id: 'col', name: 'Inbox', visibility: 'private', updatedAt: 1 }];
-  before.notes = [
-    {
-      id: '9',
-      pageId: '1',
-      text: 'hello',
-      visibility: 'private',
-      collectionId: 'col',
-      tagIds: [],
-      createdAt: 1,
-      updatedAt: 1,
-    },
-  ];
-  const after = structuredClone(before);
-  after.collections[0].deletedAt = 2;
-  after.collections[0].updatedAt = 2;
-  after.notes[0].collectionId = null;
-  after.notes[0].updatedAt = 2;
-  const plan = planMutation(before, after);
-  assert.deepEqual(
-    plan.map((item) => `${item.entity}:${item.op}`),
-    ['collection:delete'],
-  );
-  assert.deepEqual(plan[0].body.noteIds, ['9']);
-});
-
-test('deleting a temporary collection cancels its create', () => {
-  const queued = appendOutbox(
-    [{ id: '1', entity: 'collection', op: 'create', localId: 'tmp_col', body: { name: 'A' }, updatedAt: 1 }],
-    [{ id: '2', entity: 'collection', op: 'delete', localId: 'tmp_col', body: {}, updatedAt: 2 }],
-  );
-  assert.equal(queued.length, 0);
-});
-
-test('a note url ref uses collection_slug as the local collection id', () => {
-  const merged = absorbPull(createEmptyState(), {
-    notes: { items: [{ id: 5, content: 'kept', last_updated_at: 10 }] },
-    noteUrlRefs: { items: [{ id: 3, note_id: 5, url_id: 9, collection_id: 99, collection_slug: 'inbox' }] },
-  });
-  assert.equal(merged.notes[0].collectionId, 'inbox');
-  assert.equal(merged.notes[0].urlRefId, '3');
-});
-
-test('a full pull clears context tasks the server left out', () => {
-  const state = createEmptyState();
-  state.contexts = [{ id: '2', name: 'Research', taskIds: ['9'], updatedAt: 1 }];
-  const merged = absorbPull(state, { contextTasks: { items: [] } });
-  assert.deepEqual(merged.contexts[0].taskIds, []);
-});
-
-test('an incremental pull keeps context tasks missing from the page', () => {
-  const state = createEmptyState();
-  state.contexts = [{ id: '2', name: 'Research', taskIds: ['9'], updatedAt: 1 }];
-  const merged = absorbPull(state, { contextTasks: { items: [] } }, new Set(), { incremental: true });
-  assert.deepEqual(merged.contexts[0].taskIds, ['9']);
 });

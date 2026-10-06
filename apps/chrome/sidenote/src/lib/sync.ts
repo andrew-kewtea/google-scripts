@@ -15,7 +15,6 @@ import {
   type UserGroup,
   type Visibility,
 } from '../shared/types.js';
-import { applyDisplayWindow } from './cacheWindow.js';
 import { canonicalUrl, pageKey, type UrlRule } from '../shared/urlKey.js';
 
 export type OutboxEntity =
@@ -50,15 +49,7 @@ export function shouldPost(id: string): boolean {
 }
 
 export function appendOutbox(outbox: OutboxEntry[], entries: OutboxEntry[]): OutboxEntry[] {
-  let next = [...outbox];
-  for (const item of entries) {
-    if (item.op === 'delete' && isTempId(item.localId)) {
-      next = next.filter((queued) => !(queued.entity === item.entity && queued.localId === item.localId));
-      continue;
-    }
-    next.push(item);
-  }
-  return next;
+  return [...outbox, ...entries];
 }
 
 export function planMutation(before: SidenoteState, after: SidenoteState): OutboxEntry[] {
@@ -76,35 +67,22 @@ export function planMutation(before: SidenoteState, after: SidenoteState): Outbo
       );
     }
   }
-  const deletedCollections = newlyDeleted(before.collections, after.collections);
-  const deletedContexts = newlyDeleted(before.contexts, after.contexts);
-  const deletedProjects = newlyDeleted(before.projects, after.projects);
-  const deletedTasks = newlyDeleted(before.tasks, after.tasks);
-  pushRows(entries, 'collection', before.collections, after.collections, (row) => collectionBody(row, after), {
-    deleteBody: (row) => ({
-      noteIds: before.notes.filter((note) => note.collectionId === row.id).map((note) => note.id),
-    }),
-  });
-  pushNoteRows(entries, before, after, deletedCollections);
+  pushRows(entries, 'collection', before.collections, after.collections, (row) => collectionBody(row, after));
+  pushNoteRows(entries, before, after);
   for (const note of after.notes) {
     const previous = before.notes.find((item) => item.id === note.id);
     if (previous || note.deletedAt) continue;
     const page = after.pages.find((item) => item.id === note.pageId);
     if (!page) continue;
-    const body: Record<string, unknown> = { note_id: note.id, url_id: page.id };
-    if (note.collectionId) body.collection_slug = note.collectionId;
-    entries.push(entry('note_url_ref', 'create', `${note.id}:url`, body, note.updatedAt));
+    entries.push(
+      entry('note_url_ref', 'create', `${note.id}:url`, {
+        note_id: note.id,
+        url_id: page.id,
+        collection_id: note.collectionId,
+      }, note.updatedAt),
+    );
   }
-  for (const note of after.notes) {
-    const previous = before.notes.find((item) => item.id === note.id);
-    if (!previous || note.deletedAt || previous.deletedAt || previous.collectionId === note.collectionId) continue;
-    if (unlinkOnly(previous, note, 'collectionId', deletedCollections)) continue;
-    if (!note.urlRefId || isTempId(note.urlRefId)) continue;
-    entries.push(entry('note_url_ref', 'update', note.urlRefId, { collection_slug: note.collectionId }, note.updatedAt));
-  }
-  pushRows(entries, 'context', before.contexts, after.contexts, (row) => ({ name: row.name, access_level: 'private' }), {
-    skipUpdate: (prior, row) => contextLinksOnly(prior, row, deletedTasks),
-  });
+  pushRows(entries, 'context', before.contexts, after.contexts, (row) => ({ name: row.name, access_level: 'private' }));
   pushRows(entries, 'web_history', before.excerpts, after.excerpts, (row) => ({
     url_id: row.scope.pageId,
     context_id: row.contextId,
@@ -113,16 +91,12 @@ export function planMutation(before: SidenoteState, after: SidenoteState): Outbo
     excerpt: row.excerpt ?? null,
     range: row.range ?? null,
     access_level: 'private',
-  }), {
-    skipUpdate: (prior, row) => unlinkOnly(prior, row, 'contextId', deletedContexts),
-  });
+  }));
   pushRows(entries, 'task', before.tasks, after.tasks, (row) => ({
     title: row.title,
     project_id: row.projectId,
     status: row.status,
-  }), {
-    skipUpdate: (prior, row) => unlinkOnly(prior, row, 'projectId', deletedProjects),
-  });
+  }));
   pushRows(entries, 'project', before.projects, after.projects, (row) => ({ title: row.name }));
   pushRows(entries, 'tag', before.tags, after.tags, (row) => tagBody(row, after));
   pushRows(entries, 'group', before.groups, after.groups, (row) => ({ name: row.name, uname: row.handle }));
@@ -188,12 +162,6 @@ export function applyServerId(state: SidenoteState, outbox: OutboxEntry[], local
       body: rewriteValue(item.body, localId, serverId) as Record<string, unknown>,
     })),
   };
-}
-
-export function reusedCreate(body: unknown, now = Date.now()): boolean {
-  const row = createRow(body);
-  if (!row || typeof row.created_at !== 'number') return false;
-  return now / 1000 - row.created_at > 60;
 }
 
 export function mergeWinner<T extends { updatedAt?: number; deletedAt?: number; last_updated_at?: number; is_deleted?: boolean }>(
@@ -263,29 +231,13 @@ export function mergeListed<T extends { id: string; updatedAt: number; deletedAt
   local: T[],
   remote: T[],
   keep: Set<string>,
-  cap = true,
 ): T[] {
   const byId = new Map(local.map((row) => [row.id, row]));
   for (const row of remote) {
     const current = byId.get(row.id);
     byId.set(row.id, current ? mergeWinner(current, row) : row);
   }
-  const rows = [...byId.values()];
-  return cap ? trimCache(rows, keep) : rows;
-}
-
-export function restoreCollectionDelete(state: SidenoteState, id: string, noteIds: string[]): SidenoteState {
-  const restore = new Set(noteIds);
-  return {
-    ...state,
-    collections: state.collections.map((row) => {
-      if (row.id !== id) return row;
-      const rest = { ...row };
-      delete rest.deletedAt;
-      return { ...rest, updatedAt: Date.now() };
-    }),
-    notes: state.notes.map((note) => (restore.has(note.id) ? { ...note, collectionId: id } : note)),
-  };
+  return trimCache([...byId.values()], keep);
 }
 
 export function noteFromRemote(row: Record<string, unknown>, ref: Record<string, unknown> | null): Record<string, unknown> | null {
@@ -294,8 +246,7 @@ export function noteFromRemote(row: Record<string, unknown>, ref: Record<string,
     id: String(row.id),
     pageId: String(ref.url_id),
     text: typeof row.content === 'string' ? row.content : '',
-    collectionId: typeof ref.collection_slug === 'string' && ref.collection_slug ? ref.collection_slug : null,
-    urlRefId: ref.id == null ? undefined : String(ref.id),
+    collectionId: ref.collection_id == null ? null : String(ref.collection_id),
   };
 }
 
@@ -316,43 +267,33 @@ export type PullBag = {
   matchRules?: unknown;
 };
 
-export function absorbPull(
-  state: SidenoteState,
-  bag: PullBag,
-  keep: Set<string> = new Set(),
-  options?: { incremental?: boolean },
-): SidenoteState {
+export function absorbPull(state: SidenoteState, bag: PullBag, keep: Set<string> = new Set()): SidenoteState {
   let next = state;
   const tags = listItems(bag.tags).flatMap(tagFromRemote);
   if (bag.tags !== undefined) next = { ...next, tags: mergeListed(next.tags, tags, keep) };
 
   const contexts = listItems(bag.contexts).flatMap(contextFromRemote);
-  if (bag.contexts !== undefined) next = { ...next, contexts: mergeListed(next.contexts, contexts, keep, false) };
-  if (bag.contextTasks !== undefined) {
-    next = {
-      ...next,
-      contexts: applyContextTasks(next.contexts, listItems(bag.contextTasks), options?.incremental !== true),
-    };
-  }
+  if (bag.contexts !== undefined) next = { ...next, contexts: mergeListed(next.contexts, contexts, keep) };
+  if (bag.contextTasks !== undefined) next = { ...next, contexts: applyContextTasks(next.contexts, listItems(bag.contextTasks)) };
 
   const projects = listItems(bag.projects).flatMap((row) => projectFromRemote(row, state.projects));
-  if (bag.projects !== undefined) next = { ...next, projects: mergeListed(next.projects, projects, keep, false) };
+  if (bag.projects !== undefined) next = { ...next, projects: mergeListed(next.projects, projects, keep) };
 
   const tasks = listItems(bag.tasks).flatMap((row) => taskFromRemote(row, state.tasks));
-  if (bag.tasks !== undefined) next = { ...next, tasks: mergeListed(next.tasks, tasks, keep, false) };
+  if (bag.tasks !== undefined) next = { ...next, tasks: mergeListed(next.tasks, tasks, keep) };
 
   const collections = listItems(bag.collections).flatMap((row) => collectionFromRemote(row, next.groups));
-  if (bag.collections !== undefined) next = { ...next, collections: mergeListed(next.collections, collections, keep, false) };
+  if (bag.collections !== undefined) next = { ...next, collections: mergeListed(next.collections, collections, keep) };
 
   if (bag.urls !== undefined || bag.urlAbouts !== undefined) {
     next = { ...next, pages: mergeListed(next.pages, pagesFromRemote(state.pages, bag), keep) };
   }
 
   const notes = notesFromRemote(bag, next.notes, next.tags, next.groups);
-  if (bag.notes !== undefined) next = { ...next, notes: mergeListed(next.notes, notes, keep, false) };
+  if (bag.notes !== undefined) next = { ...next, notes: mergeListed(next.notes, notes, keep) };
 
   const excerpts = listItems(bag.webHistories).flatMap((row) => excerptFromRemote(row, next.pages));
-  if (bag.webHistories !== undefined) next = { ...next, excerpts: mergeListed(next.excerpts, excerpts, keep, false) };
+  if (bag.webHistories !== undefined) next = { ...next, excerpts: mergeListed(next.excerpts, excerpts, keep) };
 
   const groups = listItems(bag.groups).flatMap(groupFromRemote);
   if (bag.groups !== undefined) next = { ...next, groups: mergeListed(next.groups, groups, keep) };
@@ -365,7 +306,7 @@ export function absorbPull(
       groups: applyReadAccess(next.groups, bag.preferences),
     };
   }
-  return applyDisplayWindow(next, keep);
+  return next;
 }
 
 function pushRows<T extends { id: string; updatedAt: number; deletedAt?: number }>(
@@ -374,10 +315,6 @@ function pushRows<T extends { id: string; updatedAt: number; deletedAt?: number 
   before: T[],
   after: T[],
   bodyOf: (row: T) => Record<string, unknown>,
-  options?: {
-    skipUpdate?: (prior: T, row: T) => boolean;
-    deleteBody?: (row: T) => Record<string, unknown>;
-  },
 ): void {
   const previous = new Map(before.map((row) => [row.id, row]));
   for (const row of after) {
@@ -387,52 +324,13 @@ function pushRows<T extends { id: string; updatedAt: number; deletedAt?: number 
       continue;
     }
     if (row.deletedAt && !prior.deletedAt) {
-      entries.push(entry(entity, 'delete', row.id, options?.deleteBody?.(row) ?? {}, row.updatedAt));
+      entries.push(entry(entity, 'delete', row.id, {}, row.updatedAt));
       continue;
     }
-    if (options?.skipUpdate?.(prior, row)) continue;
     if (JSON.stringify(prior) !== JSON.stringify(row)) {
       entries.push(entry(entity, shouldPost(row.id) ? 'create' : 'update', row.id, bodyOf(row), row.updatedAt));
     }
   }
-}
-
-function newlyDeleted<T extends { id: string; deletedAt?: number }>(before: T[], after: T[]): Set<string> {
-  const previous = new Map(before.map((row) => [row.id, row]));
-  const ids = new Set<string>();
-  for (const row of after) {
-    const prior = previous.get(row.id);
-    if (prior && row.deletedAt && !prior.deletedAt) ids.add(row.id);
-  }
-  return ids;
-}
-
-function unlinkOnly<T extends { id: string; updatedAt: number }>(
-  prior: T,
-  row: T,
-  field: keyof T,
-  deletedParents: Set<string>,
-): boolean {
-  const previousId = prior[field];
-  if (typeof previousId !== 'string' || !deletedParents.has(previousId) || row[field] !== null) return false;
-  return sameExcept(prior, row, [String(field), 'updatedAt']);
-}
-
-function contextLinksOnly(prior: ContextThread, row: ContextThread, deletedTasks: Set<string>): boolean {
-  const removed = prior.taskIds.filter((id) => !row.taskIds.includes(id));
-  const added = row.taskIds.filter((id) => !prior.taskIds.includes(id));
-  if (!removed.length || added.length || !removed.every((id) => deletedTasks.has(id))) return false;
-  return sameExcept(prior, row, ['taskIds', 'updatedAt']);
-}
-
-function sameExcept(prior: object, row: object, ignore: string[]): boolean {
-  const left = { ...prior } as Record<string, unknown>;
-  const right = { ...row } as Record<string, unknown>;
-  for (const key of ignore) {
-    delete left[key];
-    delete right[key];
-  }
-  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function entry(
@@ -499,7 +397,7 @@ function noteWriteBody(note: Note, state: SidenoteState, includeDate: boolean): 
   return body;
 }
 
-function pushNoteRows(entries: OutboxEntry[], before: SidenoteState, after: SidenoteState, deletedCollections: Set<string>): void {
+function pushNoteRows(entries: OutboxEntry[], before: SidenoteState, after: SidenoteState): void {
   const previous = new Map(before.notes.map((row) => [row.id, row]));
   for (const row of after.notes) {
     const prior = previous.get(row.id);
@@ -511,7 +409,6 @@ function pushNoteRows(entries: OutboxEntry[], before: SidenoteState, after: Side
       entries.push(entry('note', 'delete', row.id, {}, row.updatedAt));
       continue;
     }
-    if (unlinkOnly(prior, row, 'collectionId', deletedCollections)) continue;
     if (JSON.stringify(prior) !== JSON.stringify(row)) {
       entries.push(entry('note', shouldPost(row.id) ? 'create' : 'update', row.id, noteWriteBody(row, after, shouldPost(row.id)), row.updatedAt));
     }
@@ -526,78 +423,40 @@ function applyReadAccess(groups: UserGroup[], body: unknown): UserGroup[] {
 
 function rewriteState(state: SidenoteState, from: string, to: string): SidenoteState {
   const swap = (id: string | null | undefined): string | null | undefined => (id === from ? to : id);
-  const ids = (values: string[]) => values.map((id) => (id === from ? to : id));
   return {
     ...state,
-    pages: adoptId(
-      state.pages.map((page) => ({ ...page, tagIds: ids(page.tagIds) })),
-      from,
-      to,
-    ),
-    notes: adoptId(
-      state.notes.map((note) => ({
-        ...note,
-        pageId: note.pageId === from ? to : note.pageId,
-        collectionId: swap(note.collectionId) ?? null,
-        tagIds: ids(note.tagIds),
-        visibility: note.visibility === `group:${from}` ? `group:${to}` : note.visibility,
-      })),
-      from,
-      to,
-    ),
-    excerpts: adoptId(
-      state.excerpts.map((row) => ({
-        ...row,
-        contextId: swap(row.contextId) ?? null,
-        tagIds: ids(row.tagIds),
-        scope: { ...row.scope, pageId: row.scope.pageId === from ? to : row.scope.pageId },
-      })),
-      from,
-      to,
-    ),
-    collections: adoptId(state.collections, from, to),
-    contexts: adoptId(
-      state.contexts.map((row) => ({ ...row, taskIds: ids(row.taskIds) })),
-      from,
-      to,
-      (kept, dropped) => ({ ...kept, taskIds: [...new Set([...kept.taskIds, ...dropped.taskIds])] }),
-    ),
-    projects: adoptId(state.projects, from, to),
-    tasks: adoptId(
-      state.tasks.map((row) => ({
-        ...row,
-        projectId: swap(row.projectId) ?? null,
-        memberIds: row.memberIds?.map((id) => (id === from ? to : id)),
-      })),
-      from,
-      to,
-    ),
-    tags: adoptId(state.tags, from, to),
-    groups: adoptId(state.groups, from, to),
+    pages: state.pages.map((page) => (page.id === from ? { ...page, id: to } : { ...page, tagIds: page.tagIds.map((id) => (id === from ? to : id)) })),
+    notes: state.notes.map((note) => ({
+      ...note,
+      id: note.id === from ? to : note.id,
+      pageId: note.pageId === from ? to : note.pageId,
+      collectionId: swap(note.collectionId) ?? null,
+      tagIds: note.tagIds.map((id) => (id === from ? to : id)),
+      visibility: note.visibility === `group:${from}` ? `group:${to}` : note.visibility,
+    })),
+    excerpts: state.excerpts.map((row) => ({
+      ...row,
+      id: row.id === from ? to : row.id,
+      contextId: swap(row.contextId) ?? null,
+      tagIds: row.tagIds.map((id) => (id === from ? to : id)),
+      scope: { ...row.scope, pageId: row.scope.pageId === from ? to : row.scope.pageId },
+    })),
+    collections: state.collections.map((row) => (row.id === from ? { ...row, id: to } : row)),
+    contexts: state.contexts.map((row) => ({
+      ...row,
+      id: row.id === from ? to : row.id,
+      taskIds: row.taskIds.map((id) => (id === from ? to : id)),
+    })),
+    projects: state.projects.map((row) => (row.id === from ? { ...row, id: to } : row)),
+    tasks: state.tasks.map((row) => ({
+      ...row,
+      id: row.id === from ? to : row.id,
+      projectId: swap(row.projectId) ?? null,
+      memberIds: row.memberIds?.map((id) => (id === from ? to : id)),
+    })),
+    tags: state.tags.map((row) => (row.id === from ? { ...row, id: to } : row)),
+    groups: state.groups.map((row) => (row.id === from ? { ...row, id: to } : row)),
   };
-}
-
-function adoptId<T extends { id: string }>(
-  rows: T[],
-  from: string,
-  to: string,
-  merge?: (kept: T, dropped: T) => T,
-): T[] {
-  if (!from || from === to) return rows;
-  const kept = rows.find((row) => row.id === to);
-  const dropped = rows.find((row) => row.id === from);
-  if (kept && dropped) {
-    const next = merge ? merge(kept, dropped) : kept;
-    return rows.filter((row) => row.id !== from).map((row) => (row.id === to ? next : row));
-  }
-  return rows.map((row) => (row.id === from ? { ...row, id: to } : row));
-}
-
-function createRow(body: unknown): Record<string, unknown> | null {
-  if (!isRecord(body)) return null;
-  if (isRecord(body.collection)) return body.collection;
-  if (isRecord(body.note)) return body.note;
-  return body;
 }
 
 function listItems(body: unknown): Record<string, unknown>[] {
@@ -642,17 +501,14 @@ function contextFromRemote(row: Record<string, unknown>): ContextThread[] {
   return [{ id, name: row.name, taskIds: [], updatedAt: rowAt(row), deletedAt: rowDeleted(row) }];
 }
 
-function applyContextTasks(contexts: ContextThread[], links: Record<string, unknown>[], replaceMissing: boolean): ContextThread[] {
+function applyContextTasks(contexts: ContextThread[], links: Record<string, unknown>[]): ContextThread[] {
   const grouped = new Map<string, string[]>();
   for (const link of links) {
     if (link.is_deleted === true || link.context_id == null || link.task_id == null) continue;
     const id = String(link.context_id);
     grouped.set(id, [...(grouped.get(id) ?? []), String(link.task_id)]);
   }
-  return contexts.map((context) => {
-    if (grouped.has(context.id)) return { ...context, taskIds: grouped.get(context.id) ?? [] };
-    return replaceMissing ? { ...context, taskIds: [] } : context;
-  });
+  return contexts.map((context) => (grouped.has(context.id) ? { ...context, taskIds: grouped.get(context.id) ?? [] } : context));
 }
 
 function projectFromRemote(row: Record<string, unknown>, local: Project[]): Project[] {
@@ -771,7 +627,6 @@ function notesFromRemote(bag: PullBag, local: Note[], tags: TagRecord[], groups:
         text: String(partial.text ?? ''),
         visibility: visibilityFromRemote(row, previous?.visibility ?? 'private', groups),
         collectionId: partial.collectionId == null ? null : String(partial.collectionId),
-        urlRefId: typeof partial.urlRefId === 'string' ? partial.urlRefId : previous?.urlRefId,
         tagIds: tagIdsFromRemote(row, previous?.tagIds ?? [], tags),
         createdAt: rowAt(row),
         updatedAt: rowAt(row),

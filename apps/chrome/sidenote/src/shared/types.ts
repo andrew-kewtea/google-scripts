@@ -41,7 +41,6 @@ export type Note = {
   text: string;
   visibility: Visibility;
   collectionId: string | null;
-  urlRefId?: string;
   tagIds: string[];
   anchor?: { selector: string; offset: number; textQuote?: string };
   createdAt: number;
@@ -130,10 +129,7 @@ export type UserGroup = {
 export type DisplayLimits = {
   collections: number;
   notesPerCollection: number;
-  contexts: number;
-  historyPerContext: number;
-  projects: number;
-  tasksPerProject: number;
+  tasks: number;
 };
 
 export type Settings = {
@@ -209,10 +205,9 @@ export const STORAGE_KEY = 'sidenote.state';
 export const AUTH_KEY = 'sidenote.auth';
 export const OUTBOX_KEY = 'sidenote.outbox';
 export const SYNCED_KEY = 'sidenote.syncedAt';
-export const NOTICE_KEY = 'sidenote.notice';
 
-export const LOCAL_QUOTA_BYTES = 20 * 1024 * 1024;
-export const CREATE_BLOCK_BYTES = 20 * 1024 * 1024;
+export const LOCAL_QUOTA_BYTES = 10 * 1024 * 1024;
+export const CREATE_BLOCK_BYTES = 9 * 1024 * 1024;
 export const CACHE_PAGE_SIZE = 20;
 export const CACHE_CAP = 60;
 export const SYNC_PERIOD_MINUTES = 10;

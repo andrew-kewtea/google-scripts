@@ -1,7 +1,7 @@
 import { GOOGLE_CLIENT_ID } from '../lib/api.js';
 import { apiRequest } from '../lib/http.js';
-import { absorbPull, applyCreatedTaskStatus, applyServerId, isTempId, listQuery, restoreCollectionDelete, reusedCreate, serverIdOf, type OutboxEntry, type PullBag } from '../lib/sync.js';
-import { AUTH_KEY, NOTICE_KEY, OUTBOX_KEY, STORAGE_KEY, SYNC_PERIOD_MINUTES, SYNCED_KEY, type SidenoteState } from '../shared/types.js';
+import { absorbPull, applyCreatedTaskStatus, applyServerId, isTempId, listQuery, serverIdOf, type OutboxEntry, type PullBag } from '../lib/sync.js';
+import { AUTH_KEY, OUTBOX_KEY, STORAGE_KEY, SYNC_PERIOD_MINUTES, SYNCED_KEY, type SidenoteState } from '../shared/types.js';
 import type { AuthRecord } from '../lib/auth.js';
 
 const ALARM = 'sidenote-sync';
@@ -50,37 +50,17 @@ export async function runSync(request: { reason?: string; entity?: string; page?
       break;
     }
     if (result.status < 200 || result.status >= 300) {
-      if (item.op === 'delete' && result.status === 404) {
-        queue = queue.slice(1);
-        continue;
-      }
-      if (item.op === 'delete' && item.entity === 'collection' && result.status === 409 && state) {
-        const noteIds = Array.isArray(item.body.noteIds)
-          ? item.body.noteIds.filter((noteId): noteId is string => typeof noteId === 'string')
-          : [];
-        state = restoreCollectionDelete(state, item.localId, noteIds);
-        await chrome.storage.local.set({ [NOTICE_KEY]: 'Journal collection has edition pages' });
-        queue = queue.slice(1);
-        continue;
-      }
       failed.push(item);
       queue = queue.slice(1);
       continue;
     }
     const serverId = serverIdOf(item.entity, result.body);
-    if (serverId && item.entity === 'note_url_ref' && state) {
-      const noteId = item.body.note_id == null ? '' : String(item.body.note_id);
-      state = {
-        ...state,
-        notes: state.notes.map((note) => (note.id === noteId ? { ...note, urlRefId: serverId } : note)),
-      };
-    }
     if (serverId && isTempId(item.localId)) {
       const applied = applyServerId(state, queue.slice(1), item.localId, serverId);
       state = applied.state;
       queue = applied.outbox;
       if (item.entity === 'task') state = applyCreatedTaskStatus(state, serverId, result.body);
-      if (item.entity === 'tag' && !reusedCreate(result.body) && item.body.access && item.body.access !== 'private') {
+      if (item.entity === 'tag' && item.body.access && item.body.access !== 'private') {
         queue = [
           {
             ...item,
@@ -142,7 +122,7 @@ async function pullWindows(auth: AuthRecord, request: { reason?: string; entity?
     if (result.auth) auth = result.auth;
     if (result.status >= 200 && result.status < 300) bag[spec.key] = result.body;
   }
-  const merged = absorbPull(state, bag, keep, { incremental: since !== undefined });
+  const merged = absorbPull(state, bag, keep);
   await chrome.storage.local.set({
     [AUTH_KEY]: auth,
     [STORAGE_KEY]: merged,

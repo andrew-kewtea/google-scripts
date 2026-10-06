@@ -49,7 +49,48 @@ export function shouldPost(id: string): boolean {
 }
 
 export function appendOutbox(outbox: OutboxEntry[], entries: OutboxEntry[]): OutboxEntry[] {
-  return [...outbox, ...entries];
+  return coalesceOutbox([...outbox, ...entries]);
+}
+
+/** One pending operation per entity and local id. Edits of a tmp_ row stay a single create. */
+export function coalesceOutbox(entries: OutboxEntry[]): OutboxEntry[] {
+  const grouped = new Map<string, OutboxEntry>();
+  const order: string[] = [];
+  for (const item of entries) {
+    const key = `${item.entity}:${item.localId}`;
+    const prior = grouped.get(key);
+    if (!prior) {
+      grouped.set(key, item);
+      order.push(key);
+      continue;
+    }
+    if (item.op === 'delete' && prior.op === 'create' && isTempId(item.localId)) {
+      grouped.delete(key);
+      continue;
+    }
+    const op = prior.op === 'create' && item.op !== 'delete' ? 'create' : item.op;
+    grouped.set(key, {
+      ...item,
+      id: op === 'create' ? prior.id : item.id,
+      op,
+      body: item.op === 'delete' ? {} : item.body,
+      updatedAt: item.updatedAt,
+    });
+  }
+  return order.flatMap((key) => {
+    const row = grouped.get(key);
+    return row ? [row] : [];
+  });
+}
+
+/** The body still names a tmp_ id whose create is waiting later in this queue. */
+export function blocksOnTemp(item: OutboxEntry, queue: OutboxEntry[]): boolean {
+  const ids = queue
+    .filter((row) => row !== item && row.op === 'create' && isTempId(row.localId))
+    .map((row) => row.localId);
+  if (!ids.length) return false;
+  const blob = JSON.stringify(item.body);
+  return ids.some((id) => blob.includes(JSON.stringify(id)));
 }
 
 export function planMutation(before: SidenoteState, after: SidenoteState): OutboxEntry[] {
@@ -75,11 +116,7 @@ export function planMutation(before: SidenoteState, after: SidenoteState): Outbo
     const page = after.pages.find((item) => item.id === note.pageId);
     if (!page) continue;
     entries.push(
-      entry('note_url_ref', 'create', `${note.id}:url`, {
-        note_id: note.id,
-        url_id: page.id,
-        collection_id: note.collectionId,
-      }, note.updatedAt),
+      entry('note_url_ref', 'create', `${note.id}:url`, noteRefBody(note, page.id), note.updatedAt),
     );
   }
   pushRows(entries, 'context', before.contexts, after.contexts, (row) => ({ name: row.name, access_level: 'private' }));
@@ -158,6 +195,7 @@ export function applyServerId(state: SidenoteState, outbox: OutboxEntry[], local
     state: next,
     outbox: outbox.map((item) => ({
       ...item,
+      op: item.localId === localId && item.op === 'create' && !isTempId(serverId) ? 'update' : item.op,
       localId: item.localId === localId ? serverId : item.localId,
       body: rewriteValue(item.body, localId, serverId) as Record<string, unknown>,
     })),
@@ -206,8 +244,13 @@ export function listQuery(
   if (entity === 'notes') params.set('has_url', '1');
   if (input.since !== undefined) params.set('last_updated_atFrom', String(input.since));
   if (entity === 'collections') {
-    if (!input.owner) return '';
-    return `/journals/@${encodeURIComponent(input.owner)}/collections?${params.toString()}`;
+    const bare = (input.owner || '').replace(/^@/, '').trim();
+    if (!bare) return '';
+    const journalParams = new URLSearchParams({
+      page: String(page),
+      size: String(CACHE_PAGE_SIZE),
+    });
+    return `/journals/@${encodeURIComponent(bare)}/collections?${journalParams.toString()}`;
   }
   if (entity === 'groups') {
     params.set('sort', 'created_at');
@@ -246,8 +289,15 @@ export function noteFromRemote(row: Record<string, unknown>, ref: Record<string,
     id: String(row.id),
     pageId: String(ref.url_id),
     text: typeof row.content === 'string' ? row.content : '',
-    collectionId: ref.collection_id == null ? null : String(ref.collection_id),
+    collectionId: collectionSlugOf(ref),
   };
+}
+
+function collectionSlugOf(ref: Record<string, unknown>): string | null {
+  if (typeof ref.collection_slug !== 'string') return null;
+  const slug = ref.collection_slug.trim();
+  if (!slug || slug === 'journal') return null;
+  return slug;
 }
 
 export type PullBag = {
@@ -394,6 +444,12 @@ function noteWriteBody(note: Note, state: SidenoteState, includeDate: boolean): 
   };
   if (note.collectionId) body.collection_slug = note.collectionId;
   if (includeDate) body.page_date = pageDateOf(note.createdAt || note.updatedAt, state.settings.timeZone);
+  return body;
+}
+
+function noteRefBody(note: Note, pageId: string): Record<string, unknown> {
+  const body: Record<string, unknown> = { note_id: note.id, url_id: pageId };
+  if (note.collectionId) body.collection_slug = note.collectionId;
   return body;
 }
 

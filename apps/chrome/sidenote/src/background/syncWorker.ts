@@ -1,6 +1,6 @@
 import { GOOGLE_CLIENT_ID } from '../lib/api.js';
 import { apiRequest } from '../lib/http.js';
-import { absorbPull, applyCreatedTaskStatus, applyServerId, isTempId, listQuery, serverIdOf, type OutboxEntry, type PullBag } from '../lib/sync.js';
+import { absorbPull, applyCreatedTaskStatus, applyServerId, blocksOnTemp, coalesceOutbox, isTempId, listQuery, serverIdOf, type OutboxEntry, type PullBag } from '../lib/sync.js';
 import { AUTH_KEY, OUTBOX_KEY, STORAGE_KEY, SYNC_PERIOD_MINUTES, SYNCED_KEY, type SidenoteState } from '../shared/types.js';
 import type { AuthRecord } from '../lib/auth.js';
 
@@ -27,26 +27,58 @@ export function installSync(): void {
   });
 }
 
-export async function runSync(request: { reason?: string; entity?: string; page?: number } = {}): Promise<void> {
+let syncChain: Promise<void> = Promise.resolve();
+
+export function runSync(request: { reason?: string; entity?: string; page?: number } = {}): Promise<void> {
+  const run = syncChain.then(() => runSyncBody(request));
+  syncChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+async function runSyncBody(request: { reason?: string; entity?: string; page?: number }): Promise<void> {
   const authBag = await chrome.storage.local.get(AUTH_KEY);
   let auth = authBag[AUTH_KEY] as AuthRecord | undefined;
   if (!auth?.accessToken || !auth.refreshToken) return;
   auth = await ensureUname(auth);
   const stored = await chrome.storage.local.get([OUTBOX_KEY, STORAGE_KEY]);
   let state = stored[STORAGE_KEY] as SidenoteState | undefined;
-  let queue = (Array.isArray(stored[OUTBOX_KEY]) ? stored[OUTBOX_KEY] : []) as OutboxEntry[];
+  let queue = coalesceOutbox((Array.isArray(stored[OUTBOX_KEY]) ? stored[OUTBOX_KEY] : []) as OutboxEntry[]);
   const failed: OutboxEntry[] = [];
+  const waiting: OutboxEntry[] = [];
+  let idle = 0;
   while (queue.length && state) {
     const item = queue[0];
-    const result = await apiRequest(fetch, auth, pathFor(item, auth.uname), {
-      method: item.op === 'delete' ? 'DELETE' : item.op === 'update' ? 'PATCH' : 'POST',
-      body: item.op === 'delete' ? undefined : item.body,
-    });
+    const path = pathFor(item, auth.uname);
+    if (!path || blocksOnTemp(item, queue)) {
+      queue = [...queue.slice(1), item];
+      idle += 1;
+      if (idle >= queue.length) {
+        waiting.push(...queue);
+        queue = [];
+        break;
+      }
+      continue;
+    }
+    idle = 0;
+    let result;
+    try {
+      result = await apiRequest(fetch, auth, path, {
+        method: item.op === 'delete' ? 'DELETE' : item.op === 'update' ? 'PATCH' : 'POST',
+        body: item.op === 'delete' ? undefined : item.body,
+      });
+    } catch {
+      waiting.push(...queue);
+      queue = [];
+      break;
+    }
     if (result.auth) auth = result.auth;
     if (result.reauth) {
       await chrome.storage.local.remove(AUTH_KEY);
       await chrome.storage.local.set({ 'sidenote.reauth': true });
-      failed.push(...queue);
+      waiting.push(...queue);
       break;
     }
     if (result.status < 200 || result.status >= 300) {
@@ -75,19 +107,26 @@ export async function runSync(request: { reason?: string; entity?: string; page?
       queue = queue.slice(1);
     }
   }
+  const signedIn = await signedInStored();
   await chrome.storage.local.set({
-    [OUTBOX_KEY]: failed,
+    [OUTBOX_KEY]: coalesceOutbox([...failed, ...waiting]),
     ...(state ? { [STORAGE_KEY]: state } : {}),
-    ...(auth ? { [AUTH_KEY]: auth } : {}),
+    ...(signedIn && auth ? { [AUTH_KEY]: auth } : {}),
   });
-  if (auth?.accessToken) await pullWindows(auth, request);
+  if (signedIn && auth?.accessToken) await pullWindows(auth, request);
+}
+
+async function signedInStored(): Promise<boolean> {
+  const bag = await chrome.storage.local.get(AUTH_KEY);
+  const stored = bag[AUTH_KEY] as AuthRecord | undefined;
+  return Boolean(stored?.accessToken && stored?.refreshToken);
 }
 
 async function pullWindows(auth: AuthRecord, request: { reason?: string; entity?: string; page?: number }): Promise<void> {
   const stored = await chrome.storage.local.get([STORAGE_KEY, OUTBOX_KEY, SYNCED_KEY]);
   const state = stored[STORAGE_KEY] as SidenoteState | undefined;
   if (!state) {
-    await chrome.storage.local.set({ [AUTH_KEY]: auth });
+    if (await signedInStored()) await chrome.storage.local.set({ [AUTH_KEY]: auth });
     return;
   }
   const since = request.reason === 'alarm' && typeof stored[SYNCED_KEY] === 'number' ? (stored[SYNCED_KEY] as number) : undefined;
@@ -123,8 +162,9 @@ async function pullWindows(auth: AuthRecord, request: { reason?: string; entity?
     if (result.status >= 200 && result.status < 300) bag[spec.key] = result.body;
   }
   const merged = absorbPull(state, bag, keep);
+  const signedIn = await signedInStored();
   await chrome.storage.local.set({
-    [AUTH_KEY]: auth,
+    ...(signedIn ? { [AUTH_KEY]: auth } : {}),
     [STORAGE_KEY]: merged,
     [SYNCED_KEY]: Math.floor(Date.now() / 1000),
   });
@@ -142,12 +182,9 @@ function includeSpec(entity: string, request: { reason?: string; entity?: string
 function pathFor(item: OutboxEntry, uname: string | undefined): string {
   if (item.entity === 'settings') return '/users/me/preferences';
   const owner = journalOwner(uname);
-  if (item.entity === 'collection') {
-    const root = `/journals/${owner}/collections`;
-    return item.op === 'create' ? root : `${root}/${encodeURIComponent(item.localId)}`;
-  }
-  if (item.entity === 'note') {
-    const root = `/journals/${owner}/notes`;
+  if (item.entity === 'collection' || item.entity === 'note') {
+    if (!owner) return '';
+    const root = item.entity === 'collection' ? `/journals/${owner}/collections` : `/journals/${owner}/notes`;
     return item.op === 'create' ? root : `${root}/${encodeURIComponent(item.localId)}`;
   }
   if (item.entity === 'group' && item.op !== 'create') {
@@ -160,18 +197,20 @@ function pathFor(item: OutboxEntry, uname: string | undefined): string {
 }
 
 function journalOwner(uname: string | undefined): string {
-  const bare = (uname || '').replace(/^@/, '');
-  return bare ? `@${encodeURIComponent(bare)}` : '@me';
+  const bare = (uname || '').replace(/^@/, '').trim();
+  return bare ? `@${encodeURIComponent(bare)}` : '';
 }
 
 async function ensureUname(auth: AuthRecord): Promise<AuthRecord> {
-  if (auth.uname) return auth;
   const result = await apiRequest(fetch, auth, '/auth/me');
   if (result.auth) auth = result.auth;
   if (result.status >= 200 && result.status < 300 && result.body && typeof result.body === 'object' && 'uname' in result.body) {
-    const uname = (result.body as { uname?: unknown }).uname;
-    if (typeof uname === 'string' && uname) return { ...auth, uname };
+    const raw = (result.body as { uname?: unknown }).uname;
+    if (typeof raw === 'string' && raw.replace(/^@/, '').trim()) {
+      return { ...auth, uname: raw.replace(/^@/, '').trim() };
+    }
   }
+  if (auth.uname) return { ...auth, uname: auth.uname.replace(/^@/, '').trim() };
   return auth;
 }
 
@@ -182,7 +221,7 @@ function rootFor(entity: OutboxEntry['entity']): string {
     case 'url_about':
       return '/url-abouts/';
     case 'note':
-      return '/journals/@me/notes';
+      return '';
     case 'note_url_ref':
       return '/note-url-refs/';
     case 'context':

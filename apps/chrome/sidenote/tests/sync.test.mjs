@@ -6,6 +6,7 @@ import {
   absorbPull,
   appendOutbox,
   applyServerId,
+  blocksOnTemp,
   listQuery,
   mergeWinner,
   nextListPage,
@@ -53,12 +54,47 @@ test('a new note queues url, url about, note, and note url ref', () => {
   assert.equal(plan[2].body.collection_slug, 'tmp_col');
   assert.match(plan[2].body.page_date, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal('access_level' in plan[2].body, false);
-  assert.equal(plan[3].body.collection_id, 'tmp_col');
+  assert.equal(plan[3].body.collection_slug, 'tmp_col');
+  assert.equal('collection_id' in plan[3].body, false);
+});
+
+test('repeated edits of one temp row stay a single create', () => {
+  const before = createEmptyState();
+  const created = createEmptyState();
+  created.tasks = [{ id: 'tmp_task', localNo: 1, title: 'ew test', projectId: null, status: 'draft', updatedAt: 1 }];
+  const edited = createEmptyState();
+  edited.tasks = [{ ...created.tasks[0], title: 'ew test 2', updatedAt: 2 }];
+  const queued = appendOutbox(planMutation(before, created), planMutation(created, edited));
+  assert.equal(queued.length, 1);
+  assert.equal(queued[0].op, 'create');
+  assert.equal(queued[0].localId, 'tmp_task');
+  assert.equal(queued[0].body.title, 'ew test 2');
+});
+
+test('a queued create becomes an update once the server id arrives', () => {
+  const state = createEmptyState();
+  state.tasks = [{ id: 'tmp_task', localNo: 1, title: 'ew test', projectId: null, status: 'draft', updatedAt: 2 }];
+  const outbox = [{ id: 'task', entity: 'task', op: 'create', localId: 'tmp_task', body: { title: 'ew test 2' }, updatedAt: 2 }];
+  const applied = applyServerId(state, outbox, 'tmp_task', '15');
+  assert.equal(applied.state.tasks[0].id, '15');
+  assert.equal(applied.outbox[0].op, 'update');
+  assert.equal(applied.outbox[0].localId, '15');
+});
+
+test('a note waits until its temp collection id is resolved', () => {
+  const note = { id: 'n', entity: 'note', op: 'create', localId: 'tmp_note', body: { collection_slug: 'tmp_col' }, updatedAt: 1 };
+  const collection = { id: 'c', entity: 'collection', op: 'create', localId: 'tmp_col', body: { slug: 'study' }, updatedAt: 1 };
+  assert.equal(blocksOnTemp(note, [note, collection]), true);
+  assert.equal(blocksOnTemp(collection, [note, collection]), false);
 });
 
 test('a note payload without a url ref is not cached', () => {
   assert.equal(noteFromRemote({ id: 4, content: 'orphan' }, null), null);
-  assert.equal(noteFromRemote({ id: 5, content: 'kept' }, { url_id: 9 }).pageId, '9');
+  const kept = noteFromRemote({ id: 5, content: 'kept' }, { url_id: 9, collection_slug: 'study' });
+  assert.equal(kept.pageId, '9');
+  assert.equal(kept.collectionId, 'study');
+  assert.equal(noteFromRemote({ id: 6, content: 'loose' }, { url_id: 9, collection_slug: 'journal' }).collectionId, null);
+  assert.equal(noteFromRemote({ id: 7, content: 'numeric' }, { url_id: 9, collection_id: 4 }).collectionId, null);
 });
 
 test('a temporary id becomes the server id and collection links follow', () => {
@@ -75,13 +111,14 @@ test('a temporary id becomes the server id and collection links follow', () => {
       updatedAt: 1,
     },
   ];
-  const outbox = [{ id: '1', entity: 'note_url_ref', op: 'create', localId: 'tmp_ref', body: { note_id: 'tmp_note', collection_id: 'tmp_col' }, updatedAt: 1 }];
+  const outbox = [{ id: '1', entity: 'note_url_ref', op: 'create', localId: 'tmp_ref', body: { note_id: 'tmp_note', collection_slug: 'tmp_col' }, updatedAt: 1 }];
   const applied = applyServerId(state, outbox, 'tmp_note', '42');
   assert.equal(applied.state.notes[0].id, '42');
   assert.equal(applied.outbox[0].body.note_id, '42');
-  const collections = applyServerId(applied.state, applied.outbox, 'tmp_col', '7');
-  assert.equal(collections.state.notes[0].collectionId, '7');
-  assert.equal(collections.outbox[0].body.collection_id, '7');
+  assert.equal(applied.outbox[0].op, 'create');
+  const collections = applyServerId(applied.state, applied.outbox, 'tmp_col', 'study');
+  assert.equal(collections.state.notes[0].collectionId, 'study');
+  assert.equal(collections.outbox[0].body.collection_slug, 'study');
 });
 
 test('the newer timestamp wins and a delete wins', () => {
@@ -138,6 +175,11 @@ test('a pull drops notes without a url and stores task members', () => {
   assert.equal(merged.notes[0].pageId, '9');
   assert.deepEqual(merged.tasks[0].memberIds, ['8']);
   assert.equal(merged.contexts[0].name, 'Research');
+});
+
+test('collection pull uses the journal handle without a second @', () => {
+  assert.equal(listQuery('collections', { owner: '@jungh_lee1' }).startsWith('/journals/@jungh_lee1/collections?'), true);
+  assert.equal(listQuery('collections', {}), '');
 });
 
 test('a 10 minute pull adds last_updated_atFrom', () => {

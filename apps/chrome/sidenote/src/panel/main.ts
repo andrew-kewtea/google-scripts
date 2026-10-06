@@ -1,4 +1,4 @@
-import { NOTICE_KEY, STORAGE_KEY, type SidenoteState } from '../shared/types.js';
+import { STORAGE_KEY, type SidenoteState } from '../shared/types.js';
 import { appendOutbox, planMutation } from '../lib/sync.js';
 import { chromeStoragePort, loadAuth, loadOutbox, loadReauth, saveOutbox } from './chromeStorage.js';
 import { startPanel } from './controller.js';
@@ -29,9 +29,4 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   const change = changes[STORAGE_KEY];
   if (change?.newValue) panel.replace(change.newValue as SidenoteState);
-  const notice = changes[NOTICE_KEY];
-  if (typeof notice?.newValue === 'string' && notice.newValue) {
-    panel.notify(notice.newValue);
-    void chrome.storage.local.remove(NOTICE_KEY);
-  }
 });

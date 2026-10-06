@@ -219,9 +219,12 @@ function limitsModal(session: Session): string {
         <button type="button" data-action="close-limits" aria-label="Close">${icon('close')}</button>
       </div>
       <div class="modal-body">
-        ${limitField('limits-collections', 'Collections shown', session.limitsCollections)}
+        ${limitField('limits-collections', 'Collections shown max', session.limitsCollections)}
         ${limitField('limits-notes', 'Notes per collection max', session.limitsNotes)}
-        ${limitField('limits-tasks', 'Tasks shown', session.limitsTasks)}
+        ${limitField('limits-contexts', 'Contexts shown max', session.limitsContexts)}
+        ${limitField('limits-history', 'History per context max', session.limitsHistory)}
+        ${limitField('limits-projects', 'Projects shown max', session.limitsProjects)}
+        ${limitField('limits-tasks', 'Tasks per project max', session.limitsTasks)}
       </div>
       <div class="btn-row modal-actions">
         <button type="button" class="btn" data-action="save-limits">Save</button>

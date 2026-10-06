@@ -422,14 +422,14 @@ export function startPanel(
         state = await service.setUi(state, { openContexts: toggleId(state.ui.openContexts, id) });
         break;
       case 'show-more-contexts':
-        state = await service.setUi(state, { contextsShown: expandShown(state.settings.display.collections) });
+        state = await service.setUi(state, { contextsShown: expandShown(state.settings.display.contexts) });
         askNextPage('contexts');
         break;
       case 'show-more-context-items':
         state = await service.setUi(state, {
           contextItemsShown: {
             ...state.ui.contextItemsShown,
-            [id]: expandShown(state.settings.display.notesPerCollection),
+            [id]: expandShown(state.settings.display.historyPerContext),
           },
         });
         break;
@@ -526,7 +526,7 @@ export function startPanel(
         state = await service.setUi(state, {
           taskItemsShown: {
             ...state.ui.taskItemsShown,
-            [id]: expandShown(state.settings.display.tasks),
+            [id]: expandShown(state.settings.display.tasksPerProject),
           },
         });
         askNextPage('tasks');
@@ -554,7 +554,10 @@ export function startPanel(
         session.limitsOpen = true;
         session.limitsCollections = state.settings.display.collections;
         session.limitsNotes = state.settings.display.notesPerCollection;
-        session.limitsTasks = state.settings.display.tasks;
+        session.limitsContexts = state.settings.display.contexts;
+        session.limitsHistory = state.settings.display.historyPerContext;
+        session.limitsProjects = state.settings.display.projects;
+        session.limitsTasks = state.settings.display.tasksPerProject;
         break;
       case 'close-limits':
         session.limitsOpen = false;
@@ -563,7 +566,10 @@ export function startPanel(
         state = await service.saveDisplay(state, {
           collections: session.limitsCollections,
           notesPerCollection: session.limitsNotes,
-          tasks: session.limitsTasks,
+          contexts: session.limitsContexts,
+          historyPerContext: session.limitsHistory,
+          projects: session.limitsProjects,
+          tasksPerProject: session.limitsTasks,
         });
         session.limitsOpen = false;
         break;
@@ -922,6 +928,15 @@ export function startPanel(
     });
     assignNumber('limits-notes', (value) => {
       session.limitsNotes = value;
+    });
+    assignNumber('limits-contexts', (value) => {
+      session.limitsContexts = value;
+    });
+    assignNumber('limits-history', (value) => {
+      session.limitsHistory = value;
+    });
+    assignNumber('limits-projects', (value) => {
+      session.limitsProjects = value;
     });
     assignNumber('limits-tasks', (value) => {
       session.limitsTasks = value;

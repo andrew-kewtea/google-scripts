@@ -129,7 +129,10 @@ export type UserGroup = {
 export type DisplayLimits = {
   collections: number;
   notesPerCollection: number;
-  tasks: number;
+  contexts: number;
+  historyPerContext: number;
+  projects: number;
+  tasksPerProject: number;
 };
 
 export type Settings = {
